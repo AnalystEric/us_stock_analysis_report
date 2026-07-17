@@ -136,9 +136,9 @@ def _run_report(query: str):
     prev2 = charts.revenue_yoy_chart(t, report.financials)
     pc1, pc2 = st.columns(2)
     if prev1:
-        pc1.image(prev1, caption="股價 K 線 + 均線 + 成交量")
+        pc1.image(prev1, caption="股價 K 線 + 均線 + 成交量", use_container_width=True)
     if prev2:
-        pc2.image(prev2, caption="季度營收與 YoY")
+        pc2.image(prev2, caption="季度營收與 YoY", use_container_width=True)
 
     with st.spinner("產生 PDF 報告…"):
         fname = f"{t}_{p.company_name.replace(' ', '_')}_投資分析報告.pdf"
