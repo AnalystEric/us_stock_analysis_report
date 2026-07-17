@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>{{ ticker }} 投資分析報告</title>
+<style>
+{{ font_face_css|safe }}
+{{ css|safe }}
+</style>
+</head>
+<body>
+
+<!-- ===== 封面 ===== -->
+<section class="cover">
+  <div class="eyebrow">US Equity Research · 美股投資分析</div>
+  <h1>{{ company }}</h1>
+  <div class="ticker">{{ ticker }}{% if exchange %} · {{ exchange }}{% endif %}</div>
+  <div>
+    {% if sector %}<span class="badge">{{ sector }}</span>{% endif %}
+    {% if industry %}<span class="badge">{{ industry }}</span>{% endif %}
+  </div>
+  <div class="meta">
+    <div>報告產出日期：{{ generated_on }}</div>
+    <div>總市值：{{ market_cap }}</div>
+    <div>目前股價：{{ current_price }}　華爾街共識：{{ consensus or '—' }}</div>
+    <div style="margin-top:10px;font-size:8.5pt;color:#A9C0D6;">
+      資料來源：yfinance 及公開財經資料　·　質化分析：{{ ai_provider }}
+    </div>
+  </div>
+</section>
+
+<!-- ===== 首頁：執行摘要與關鍵數據 ===== -->
+<section>
+  <h1 class="chapter">執行摘要與關鍵數據</h1>
+  <h2 class="section">核心觀點 (Core View)
+    <span class="ai-badge {{ 'on' if ai_generated else '' }}">{{ 'AI 分析' if ai_generated else '數據模板' }}</span>
+  </h2>
+  {% if ai_notice %}<div class="notice">{{ ai_notice }}</div>{% endif %}
+  <div class="core-view">{{ core_view_html|safe }}</div>
+
+  <h2 class="section">關鍵數據一覽表</h2>
+  <table class="kpi-table">
+    <tbody>
+      {% for row in kpi_rows %}
+      <tr>
+        <td class="label">{{ row[0] }}</td><td class="value">{{ row[1]|safe }}</td>
+        <td class="label">{{ row[2] }}</td><td class="value">{{ row[3]|safe }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- ===== 第一章：業務概述與護城河 ===== -->
+<section class="chapter-wrap">
+  <h1 class="chapter">第一章　公司業務概述與護城河</h1>
+  <h2 class="section">公司簡介與業務模式</h2>
+  <div class="card">{{ business_overview_html|safe }}</div>
+  {% if chart_segments %}
+  <figure>
+    <img src="{{ chart_segments }}">
+    <figcaption>圖表 1：{{ segments_basis }}</figcaption>
+  </figure>
+  {% endif %}
+  <h2 class="section">護城河分析 (Economic Moat)</h2>
+  <div class="card">{{ moat_html|safe }}</div>
+</section>
+
+<!-- ===== 第二章：深度財務數據視覺化 ===== -->
+<section class="chapter-wrap">
+  <h1 class="chapter">第二章　深度財務數據視覺化</h1>
+  {% if chart_revenue_yoy %}
+  <figure><img src="{{ chart_revenue_yoy }}"><figcaption>圖表 2：近 8 季營收與年增率 (YoY)</figcaption></figure>
+  {% endif %}
+  {% if chart_margins %}
+  <figure><img src="{{ chart_margins }}"><figcaption>圖表 3：近 8 季毛利率與自由現金流利潤率</figcaption></figure>
+  {% endif %}
+  {% if chart_eps %}
+  <figure><img src="{{ chart_eps }}"><figcaption>圖表 4：近 8 季實際 EPS vs 市場預估 (Beat/Miss)</figcaption></figure>
+  {% endif %}
+
+  {% if quarter_rows %}
+  <h2 class="section">季度財務明細</h2>
+  <table>
+    <thead><tr>
+      <th>季度</th><th class="num">營收</th><th class="num">YoY</th>
+      <th class="num">毛利率</th><th class="num">FCF 利潤率</th>
+      <th class="num">實際 EPS</th><th class="num">預估 EPS</th><th>Beat/Miss</th>
+    </tr></thead>
+    <tbody>
+      {% for q in quarter_rows %}
+      <tr>
+        <td>{{ q.period }}</td>
+        <td class="num">{{ q.revenue }}</td>
+        <td class="num">{{ q.yoy|safe }}</td>
+        <td class="num">{{ q.gm }}</td>
+        <td class="num">{{ q.fcfm }}</td>
+        <td class="num">{{ q.eps_a }}</td>
+        <td class="num">{{ q.eps_e }}</td>
+        <td>{{ q.bm|safe }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+<!-- ===== 第三章：估值與籌碼分析 ===== -->
+<section class="chapter-wrap">
+  <h1 class="chapter">第三章　估值與籌碼分析</h1>
+  <h2 class="section">估值倍數</h2>
+  <table>
+    <thead><tr><th>指標</th><th class="num">數值</th><th>指標</th><th class="num">數值</th></tr></thead>
+    <tbody>
+      {% for row in valuation_rows %}
+      <tr><td>{{ row[0] }}</td><td class="num">{{ row[1] }}</td>
+          <td>{{ row[2] }}</td><td class="num">{{ row[3] }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if pe_context %}<p class="muted">{{ pe_context }}</p>{% endif %}
+  {% if chart_pe %}
+  <figure><img src="{{ chart_pe }}"><figcaption>近 3 年近似本益比趨勢（歷史股價 ÷ 目前 TTM EPS，僅供位階參考）</figcaption></figure>
+  {% endif %}
+
+  <h2 class="section">技術與籌碼面走勢</h2>
+  {% if chart_price %}
+  <figure><img src="{{ chart_price }}"><figcaption>圖表 5：近 1 年股價 K 線圖（疊加 50/200 日均線與成交量）</figcaption></figure>
+  {% endif %}
+  <table>
+    <tbody>
+      <tr><td class="label">選擇權近月到期日</td><td class="value">{{ opt_expiry }}</td>
+          <td class="label">Put/Call Ratio</td><td class="value">{{ put_call }}</td></tr>
+      <tr><td class="label">機構持股比例</td><td class="value">{{ inst_pct }}</td>
+          <td class="label">內部人持股比例</td><td class="value">{{ insider_pct }}</td></tr>
+    </tbody>
+  </table>
+  {% if options_note %}<p class="muted">{{ options_note }}</p>{% endif %}
+  {% if insider_summary %}
+  <h3 class="sub">近期內部人交易摘要</h3>
+  <ul>{% for line in insider_summary %}<li>{{ line }}</li>{% endfor %}</ul>
+  {% endif %}
+</section>
+
+<!-- ===== 第四章：同業比較 ===== -->
+<section class="chapter-wrap">
+  <h1 class="chapter">第四章　同業比較 (Peer Comparison)</h1>
+  {% if peers_basis %}<p class="muted">比較依據：{{ peers_basis }}</p>{% endif %}
+  {% if chart_peers %}
+  <figure><img src="{{ chart_peers }}"><figcaption>本公司與同業毛利率 / 淨利率比較</figcaption></figure>
+  {% endif %}
+  {% if peer_rows %}
+  <table>
+    <thead><tr>
+      <th>代號</th><th>公司</th><th class="num">市值</th>
+      <th class="num">營收成長</th><th class="num">毛利率</th>
+      <th class="num">淨利率</th><th class="num">EV/Sales</th><th class="num">Fwd P/E</th>
+    </tr></thead>
+    <tbody>
+      {% for r in peer_rows %}
+      <tr class="{{ 'self-row' if r.is_self else '' }}">
+        <td>{{ r.ticker }}</td><td>{{ r.name }}</td>
+        <td class="num">{{ r.mcap }}</td><td class="num">{{ r.growth|safe }}</td>
+        <td class="num">{{ r.gm }}</td><td class="num">{{ r.pm }}</td>
+        <td class="num">{{ r.evs }}</td><td class="num">{{ r.fpe }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="warn">查無可比較的同業資料。</p>{% endif %}
+</section>
+
+<!-- ===== 第五章：主要風險與結論 ===== -->
+<section class="chapter-wrap">
+  <h1 class="chapter">第五章　主要風險與結論</h1>
+  <h2 class="section">主要風險 (Key Risks)</h2>
+  <div class="card">{{ risks_html|safe }}</div>
+
+  <h2 class="section">目標價區間評估（情境分析）</h2>
+  {% if scenario_rows %}
+  <table>
+    <thead><tr><th>情境</th><th class="num">目標價</th><th class="num">隱含空間</th><th>說明</th></tr></thead>
+    <tbody>
+      {% for s in scenario_rows %}
+      <tr><td>{{ s.name }}</td><td class="num">{{ s.target }}</td>
+          <td class="num">{{ s.implied|safe }}</td><td>{{ s.rationale }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="warn">查無分析師目標價，無法建立情境分析。</p>{% endif %}
+
+  <h2 class="section">結論 (Conclusion)</h2>
+  <div class="core-view">{{ conclusion_html|safe }}</div>
+</section>
+
+<!-- ===== 附錄：近期新聞 ===== -->
+{% if news_items %}
+<section class="chapter-wrap">
+  <h1 class="chapter">附錄　近期新聞與研究摘要</h1>
+  <p class="muted">資料來源：{{ news_sources }}</p>
+  <ul class="news">
+    {% for n in news_items %}
+    <li>
+      <div class="n-title">{% if n.url %}<a href="{{ n.url }}">{{ n.title }}</a>{% else %}{{ n.title }}{% endif %}</div>
+      <div class="n-meta">{{ n.meta }}</div>
+      {% if n.snippet %}<div>{{ n.snippet }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+</body>
+</html>

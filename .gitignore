@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+output/*.pdf
+.cache/
+temp_images/
+fonts/*.ttf
+fonts/*.otf
+fonts/*.ttc
+.DS_Store
+
+# 機密：絕不提交真實金鑰
+.streamlit/secrets.toml
+
+# Claude Code / IDE 本機工具產物
+.claude/
+.agents/

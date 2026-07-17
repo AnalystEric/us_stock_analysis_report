@@ -1,0 +1,29 @@
+# --- 資料獲取 ---
+yfinance>=0.2.40
+curl_cffi>=0.7
+requests>=2.31
+feedparser>=6.0
+beautifulsoup4>=4.12
+lxml>=5.0
+
+# --- 資料處理與視覺化 ---
+pandas>=2.1
+numpy>=1.26
+matplotlib>=3.8
+mplfinance>=0.12
+
+# --- PDF 排版（HTML -> PDF）---
+weasyprint>=60
+jinja2>=3.1
+# macOS 需先安裝系統庫：brew install pango gdk-pixbuf libffi
+
+# --- AI 質化分析（選用，未設 API Key 則自動降級模板）---
+anthropic>=0.40
+openai>=1.40
+
+# --- 網頁介面（選用）---
+streamlit>=1.30
+pymupdf>=1.24      # 網頁內嵌 PDF 預覽（逐頁轉圖，避免 Chrome 封鎖 iframe PDF）
+
+# --- 其他 ---
+python-dotenv>=1.0

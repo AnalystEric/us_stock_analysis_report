@@ -1,0 +1,138 @@
+/* 美股投資分析報告 — 商務風格樣式（WeasyPrint）
+   __DISCLAIMER__ 由程式替換為免責聲明文字。 */
+
+:root {
+  --navy: #1F3A5F;
+  --steel: #4A7BA7;
+  --light: #EAF0F6;
+  --amber: #D97706;
+  --green: #15803D;
+  --red: #B91C1C;
+  --grid: #D8DEE8;
+  --text: #1A2230;
+  --muted: #64748B;
+}
+
+@page {
+  size: A4;
+  margin: 20mm 16mm 20mm 16mm;
+  @bottom-left {
+    content: "美股投資分析 PDF 報告產生器";
+    font-family: "CJK", "PingFang TC", "Heiti TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
+    font-size: 7pt;
+    color: #94A3B8;
+  }
+  @bottom-center {
+    content: "免責聲明：__DISCLAIMER__";
+    font-family: "CJK", "PingFang TC", "Heiti TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
+    font-size: 7pt;
+    color: #94A3B8;
+  }
+  @bottom-right {
+    content: "第 " counter(page) " 頁 / 共 " counter(pages) " 頁";
+    font-family: "CJK", "PingFang TC", "Heiti TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
+    font-size: 7pt;
+    color: #94A3B8;
+  }
+}
+
+@page :first {
+  margin: 0;
+  @bottom-left { content: ""; }
+  @bottom-center { content: ""; }
+  @bottom-right { content: ""; }
+}
+
+* { box-sizing: border-box; }
+
+html {
+  font-family: "CJK", "Noto Sans CJK TC", "PingFang TC", "Heiti TC",
+               "Microsoft JhengHei", sans-serif;
+  color: var(--text);
+  font-size: 10.5pt;
+  line-height: 1.6;
+}
+
+p { margin: 0 0 8px 0; text-align: justify; }
+
+/* ---------- 封面 ---------- */
+.cover {
+  height: 297mm;
+  padding: 40mm 24mm 24mm 24mm;
+  background: linear-gradient(160deg, #1F3A5F 0%, #2C4E77 55%, #3A6699 100%);
+  color: #fff;
+  page-break-after: always;
+  position: relative;
+}
+.cover .eyebrow { font-size: 11pt; letter-spacing: 3px; color: #A9C0D6; text-transform: uppercase; }
+.cover h1 { font-size: 30pt; font-weight: 700; margin: 18px 0 6px 0; line-height: 1.2; }
+.cover .ticker { font-size: 15pt; color: #CFE0F0; margin-bottom: 40px; }
+.cover .meta { position: absolute; bottom: 34mm; left: 24mm; font-size: 10pt; color: #CFE0F0; }
+.cover .meta div { margin-bottom: 4px; }
+.cover .badge {
+  display: inline-block; background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.35); border-radius: 4px;
+  padding: 4px 12px; font-size: 9.5pt; margin-right: 8px;
+}
+
+/* ---------- 章節 ---------- */
+h1.chapter {
+  font-size: 16pt; color: var(--navy); border-bottom: 2.5px solid var(--navy);
+  padding-bottom: 5px; margin: 4px 0 12px 0;
+}
+h2.section {
+  font-size: 12.5pt; color: var(--navy); margin: 16px 0 6px 0;
+  padding-left: 8px; border-left: 4px solid var(--amber);
+}
+h3.sub { font-size: 11pt; color: var(--steel); margin: 12px 0 4px 0; }
+.chapter-wrap { page-break-before: always; }
+
+/* ---------- 表格（Zebra striping） ---------- */
+table { width: 100%; border-collapse: collapse; margin: 8px 0 12px 0; font-size: 9.5pt; }
+th {
+  background: var(--navy); color: #fff; text-align: left;
+  padding: 6px 8px; font-weight: 600;
+}
+td { padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+tbody tr:nth-child(odd)  { background: #ffffff; }
+tbody tr:nth-child(even) { background: var(--light); }
+tr.self-row td { font-weight: 700; color: var(--navy); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+
+/* 關鍵數據一覽（首頁後） */
+.kpi-table td.label { color: var(--muted); width: 26%; }
+.kpi-table td.value { font-weight: 600; }
+
+/* ---------- 圖表 ---------- */
+figure { margin: 8px 0 14px 0; page-break-inside: avoid; text-align: center; }
+figure img { max-width: 100%; height: auto; }
+figcaption { font-size: 8pt; color: var(--muted); margin-top: 3px; }
+
+/* ---------- 區塊卡片 ---------- */
+.card {
+  background: #F8FAFC; border: 1px solid var(--grid); border-radius: 6px;
+  padding: 12px 14px; margin: 8px 0 12px 0; page-break-inside: avoid;
+}
+.core-view {
+  background: var(--light); border-left: 5px solid var(--navy);
+  padding: 14px 16px; margin: 10px 0 14px 0; border-radius: 4px;
+}
+.ai-badge {
+  display: inline-block; font-size: 8pt; padding: 2px 8px; border-radius: 10px;
+  background: #E2E8F0; color: var(--muted); margin-left: 8px; vertical-align: middle;
+}
+.ai-badge.on { background: #DCFCE7; color: var(--green); }
+.notice {
+  background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E;
+  font-size: 8.5pt; padding: 8px 10px; border-radius: 4px; margin: 6px 0 12px 0;
+}
+.muted { color: var(--muted); font-size: 9pt; }
+.warn { color: var(--muted); font-size: 8.5pt; font-style: italic; }
+
+ul.news { list-style: none; padding: 0; margin: 0; }
+ul.news li { padding: 6px 0; border-bottom: 1px solid var(--grid); page-break-inside: avoid; }
+ul.news .n-title { font-weight: 600; color: var(--navy); }
+ul.news .n-meta { font-size: 8pt; color: var(--muted); }
+ul.news a { color: var(--navy); text-decoration: none; }

@@ -1,0 +1,12 @@
+[server]
+headless = true
+address = "0.0.0.0"
+# 上傳/回應大小上限（MB）
+maxUploadSize = 50
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#1F3A5F"
