@@ -132,13 +132,16 @@ def _run_report(query: str):
 
     st.markdown("#### 圖表預覽")
     t = p.ticker
-    prev1 = charts.price_candle_chart(t, report.price)
-    prev2 = charts.revenue_yoy_chart(t, report.financials)
-    pc1, pc2 = st.columns(2)
-    if prev1:
-        pc1.image(prev1, caption="股價 K 線 + 均線 + 成交量", use_container_width=True)
-    if prev2:
-        pc2.image(prev2, caption="季度營收與 YoY", use_container_width=True)
+    # 單張全寬堆疊：尺寸一致、圖大清楚
+    previews = [
+        (charts.price_candle_chart(t, report.price), "股價 K 線圖（疊加 50/200 日均線與成交量）"),
+        (charts.revenue_yoy_chart(t, report.financials), "季度營收與年增率 (YoY)"),
+        (charts.margins_chart(t, report.financials), "季度毛利率與自由現金流利潤率"),
+        (charts.eps_chart(t, report.financials), "季度實際 EPS vs 市場預估 (Beat/Miss)"),
+    ]
+    for path, caption in previews:
+        if path:
+            st.image(path, caption=caption, use_container_width=True)
 
     with st.spinner("產生 PDF 報告…"):
         fname = f"{t}_{p.company_name.replace(' ', '_')}_投資分析報告.pdf"

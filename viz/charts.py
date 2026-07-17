@@ -25,6 +25,11 @@ from viz import style
 
 logger = logging.getLogger(__name__)
 
+# 統一圖表尺寸（英吋），確保各圖比例一致、預覽與 PDF 皆整齊
+FIG_W = 8.0          # 一致寬度
+FIG_H = 4.0          # 一般圖表高度（長寬比 2:1）
+FIG_H_PRICE = 4.8    # K 線圖較高（含成交量子圖）
+
 
 def _out(name: str) -> Path:
     TEMP_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
@@ -56,7 +61,7 @@ def revenue_segments_chart(ticker: str, seg: RevenueSegments) -> str:
     if not seg.values or len(seg.values) < 2:
         return ""
     style.apply_style()
-    fig, ax = plt.subplots(figsize=(6.6, 3.6))
+    fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     bars = ax.bar(seg.labels, seg.values, color=style.SERIES[: len(seg.values)], width=0.6)
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(_millions))
     style.apply_cjk(ax, title=f"{ticker} 年度營收規模", ylabel="營收 (USD)")
@@ -76,7 +81,7 @@ def revenue_yoy_chart(ticker: str, fin: FinancialsData) -> str:
     revenue = [q.revenue for q in quarters]
     yoy = [q.revenue_yoy * 100 if q.revenue_yoy is not None else None for q in quarters]
 
-    fig, ax1 = plt.subplots(figsize=(6.8, 3.8))
+    fig, ax1 = plt.subplots(figsize=(FIG_W, FIG_H))
     x = np.arange(len(periods))
     ax1.bar(x, revenue, color=style.STEEL, width=0.6, label="營收")
     ax1.yaxis.set_major_formatter(mticker.FuncFormatter(_millions))
@@ -92,7 +97,8 @@ def revenue_yoy_chart(ticker: str, fin: FinancialsData) -> str:
         for xi, yi in zip(xs, ys):
             ax2.annotate(f"{yi:.0f}%", (xi, yi), textcoords="offset points",
                          xytext=(0, 8), ha="center", fontsize=8, color=style.AMBER)
-    ax2.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.0f}%"))
+    ax2.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.1f}%"))
+    ax2.yaxis.set_major_locator(mticker.MaxNLocator(nbins=5))
     ax2.set_ylabel("YoY (%)", fontproperties=style.fp())
     ax2.grid(False)
 
@@ -112,7 +118,7 @@ def margins_chart(ticker: str, fin: FinancialsData) -> str:
     style.apply_style()
     periods = [q.period for q in quarters]
     x = np.arange(len(periods))
-    fig, ax = plt.subplots(figsize=(6.8, 3.6))
+    fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
 
     def _plot(vals, color, label):
         xs = [i for i, v in enumerate(vals) if v is not None]
@@ -141,7 +147,7 @@ def eps_chart(ticker: str, fin: FinancialsData) -> str:
     est = [q.eps_estimate for q in quarters]
     x = np.arange(len(periods))
     w = 0.38
-    fig, ax = plt.subplots(figsize=(6.8, 3.6))
+    fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
 
     est_vals = [e if e is not None else 0 for e in est]
     ax.bar(x - w / 2, est_vals, w, color=style.LIGHT_BLUE, label="市場預估 EPS")
@@ -200,7 +206,7 @@ def price_candle_chart(ticker: str, price: PriceData) -> str:
                                gridcolor=style.GRID, figcolor="white")
         fig, axes = mpf.plot(
             df, type="candle", style=s, addplot=addplots or None,
-            volume=True, returnfig=True, figsize=(7.4, 4.6),
+            volume=True, returnfig=True, figsize=(FIG_W, FIG_H_PRICE),
             warn_too_much_data=10000,
         )
         font = style.fp()
@@ -223,7 +229,7 @@ def _price_line_fallback(ticker: str, price: PriceData) -> str:
     if df is None or getattr(df, "empty", True) or "Close" not in df.columns:
         return ""
     style.apply_style()
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7.4, 4.6), sharex=True,
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(FIG_W, FIG_H_PRICE), sharex=True,
                                    gridspec_kw={"height_ratios": [3, 1], "hspace": 0.08})
     ax1.plot(df.index, df["Close"], color=style.NAVY, linewidth=1.4, label="收盤價")
     if "MA50" in df:
@@ -244,7 +250,7 @@ def pe_trend_chart(ticker: str, val: ValuationMultiples) -> str:
     if series is None or getattr(series, "empty", True):
         return ""
     style.apply_style()
-    fig, ax = plt.subplots(figsize=(6.8, 3.4))
+    fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     ax.plot(series.index, series.values, color=style.NAVY, linewidth=1.4, label="近似 P/E")
     if val.pe_mean_3y:
         ax.axhline(val.pe_mean_3y, color=style.AMBER, linestyle="--", linewidth=1.0,
@@ -277,7 +283,7 @@ def peers_chart(ticker: str, peers: PeerComparison) -> str:
     profit = [(r.profit_margin or 0) * 100 for r in rows]
     x = np.arange(len(labels))
     w = 0.38
-    fig, ax = plt.subplots(figsize=(6.8, 3.6))
+    fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     ax.bar(x - w / 2, gross, w, color=style.NAVY, label="毛利率")
     ax.bar(x + w / 2, profit, w, color=style.LIGHT_BLUE, label="淨利率")
     ax.set_xticks(x)
