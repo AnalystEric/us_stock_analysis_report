@@ -1,7 +1,8 @@
 [server]
-# 本機執行會自動開啟瀏覽器；雲端(Streamlit Cloud)會強制 headless，
-# Docker 由 CMD 的 --server.headless=true 覆寫，故此設定不影響部署。
-headless = false
+# 必須 headless=true：否則 Streamlit 啟動時會出現「請輸入 email」互動提示，
+# 在雲端(無終端機)會卡住等待輸入 → 服務永遠起不來(健康檢查 connection refused)。
+# 本機想讓它自動開瀏覽器，可改用：streamlit run app.py --server.headless=false
+headless = true
 address = "0.0.0.0"
 # 上傳/回應大小上限（MB）
 maxUploadSize = 50
