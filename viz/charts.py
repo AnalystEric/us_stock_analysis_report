@@ -22,6 +22,8 @@ import numpy as np
 from config import CHART_DPI, TEMP_IMAGES_DIR
 from core.models import (
     FinancialsData,
+    InstitutionalFlow,
+    MonthlyRevenue,
     PeerComparison,
     PriceData,
     RevenueSegments,
@@ -62,6 +64,33 @@ def _millions(v, _pos=None):
     if abs(v) >= 1e6:
         return f"{v/1e6:.0f}M"
     return f"{v:.0f}"
+
+
+def _yi(v, _pos=None):
+    """台股金額（元）→ 億 / 兆 標示。"""
+    if abs(v) >= 1e12:
+        return f"{v/1e12:.2f}兆"
+    if abs(v) >= 1e8:
+        return f"{v/1e8:.0f}億"
+    if abs(v) >= 1e4:
+        return f"{v/1e4:.0f}萬"
+    return f"{v:.0f}"
+
+
+# 貨幣模式（由 pdf_builder 於產圖前設定）：影響營收類圖表的單位與軸標題
+_CUR_MODE = "US"
+
+
+def set_currency(market: str) -> None:
+    global _CUR_MODE
+    _CUR_MODE = "TW" if market in ("TWSE", "TPEX") else "US"
+
+
+def _rev_fmt():
+    """依市場回傳（金額格式化函式, 軸標題）。"""
+    if _CUR_MODE == "TW":
+        return _yi, "營收 (NT$)"
+    return _millions, "營收 (USD)"
 
 
 def scorecard_radar(ticker: str, card: ScoreCard) -> str:
@@ -111,12 +140,13 @@ def revenue_segments_chart(ticker: str, seg: RevenueSegments) -> str:
     if not seg.values or len(seg.values) < 2:
         return ""
     style.apply_style()
+    mfmt, ylabel = _rev_fmt()
     fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
     bars = ax.bar(seg.labels, seg.values, color=style.SERIES[: len(seg.values)], width=0.6)
-    ax.yaxis.set_major_formatter(mticker.FuncFormatter(_millions))
-    style.apply_cjk(ax, title=f"{ticker} 年度營收規模", ylabel="營收 (USD)")
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(mfmt))
+    style.apply_cjk(ax, title=f"{ticker} 年度營收規模", ylabel=ylabel)
     for b, v in zip(bars, seg.values):
-        ax.annotate(_millions(v), (b.get_x() + b.get_width() / 2, v),
+        ax.annotate(mfmt(v), (b.get_x() + b.get_width() / 2, v),
                     ha="center", va="bottom", fontsize=8, color=style.TEXT)
     ax.margins(y=0.15)
     return _save(fig, _out(f"{ticker}_segments.png"))
@@ -131,13 +161,14 @@ def revenue_yoy_chart(ticker: str, fin: FinancialsData) -> str:
     revenue = [q.revenue for q in quarters]
     yoy = [q.revenue_yoy * 100 if q.revenue_yoy is not None else None for q in quarters]
 
+    mfmt, ylabel = _rev_fmt()
     fig, ax1 = plt.subplots(figsize=(FIG_W, FIG_H))
     x = np.arange(len(periods))
     ax1.bar(x, revenue, color=style.STEEL, width=0.6, label="營收")
-    ax1.yaxis.set_major_formatter(mticker.FuncFormatter(_millions))
+    ax1.yaxis.set_major_formatter(mticker.FuncFormatter(mfmt))
     ax1.set_xticks(x)
     ax1.set_xticklabels(periods, rotation=30, ha="right")
-    style.apply_cjk(ax1, title=f"{ticker} 季度營收與年增率 (YoY)", ylabel="營收 (USD)")
+    style.apply_cjk(ax1, title=f"{ticker} 季度營收與年增率 (YoY)", ylabel=ylabel)
 
     ax2 = ax1.twinx()
     xs = [i for i, v in enumerate(yoy) if v is not None]
@@ -216,7 +247,8 @@ def eps_chart(ticker: str, fin: FinancialsData) -> str:
 
     ax.set_xticks(x)
     ax.set_xticklabels(periods, rotation=30, ha="right")
-    style.apply_cjk(ax, title=f"{ticker} 季度 EPS：實際 vs 市場預估", ylabel="EPS (USD)")
+    style.apply_cjk(ax, title=f"{ticker} 季度 EPS：實際 vs 市場預估",
+                    ylabel="EPS (元)" if _CUR_MODE == "TW" else "EPS (USD)")
     # 圖例（含 Beat/Miss 說明）
     handles = [
         plt.Rectangle((0, 0), 1, 1, color=style.LIGHT_BLUE),
@@ -358,3 +390,68 @@ def peers_chart(ticker: str, peers: PeerComparison) -> str:
     style.apply_cjk(ax, title=f"{ticker} 與同業 毛利率 / 淨利率比較", ylabel="百分比 (%)")
     style.legend_below(ax, ncol=2)
     return _save(fig, _out(f"{ticker}_peers.png"))
+
+
+# ---------------------------------------------------------------------------
+# 台股專屬圖表
+# ---------------------------------------------------------------------------
+def monthly_revenue_chart(ticker: str, mr: MonthlyRevenue) -> str:
+    """近 ~15 個月月營收（長條，單位億）+ 年增率 YoY（折線）雙軸圖。"""
+    pts = [p for p in mr.points if p.revenue is not None]
+    if len(pts) < 2:
+        return ""
+    style.apply_style()
+    periods = [p.period[2:] for p in pts]          # '2026-06' → '26-06'
+    revenue = [p.revenue for p in pts]
+    yoy = [p.yoy * 100 if p.yoy is not None else None for p in pts]
+
+    fig, ax1 = plt.subplots(figsize=(FIG_W, FIG_H))
+    x = np.arange(len(periods))
+    ax1.bar(x, revenue, color=style.STEEL, width=0.62, label="月營收")
+    ax1.yaxis.set_major_formatter(mticker.FuncFormatter(_yi))
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(periods, rotation=45, ha="right", fontsize=7)
+    style.apply_cjk(ax1, title=f"{ticker} 月營收與年增率 (YoY)", ylabel="月營收 (NT$)")
+
+    ax2 = ax1.twinx()
+    xs = [i for i, v in enumerate(yoy) if v is not None]
+    ys = [v for v in yoy if v is not None]
+    if xs:
+        ax2.plot(xs, ys, color=style.AMBER, marker="o", linewidth=1.8, label="YoY %")
+        ax2.axhline(0, color=style.MUTED, linewidth=0.6, linestyle="--")
+    ax2.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.0f}%"))
+    ax2.yaxis.set_major_locator(mticker.MaxNLocator(nbins=5))
+    ax2.set_ylabel("YoY (%)", fontproperties=style.fp())
+    ax2.grid(False)
+
+    lines = [plt.Rectangle((0, 0), 1, 1, color=style.STEEL),
+             plt.Line2D([0], [0], color=style.AMBER, marker="o")]
+    style.legend_below(ax1, handles=lines, labels=["月營收", "YoY %"], ncol=2)
+    return _save(fig, _out(f"{ticker}_monthly_revenue.png"))
+
+
+def institutional_chart(ticker: str, inst: InstitutionalFlow) -> str:
+    """近 ~20 交易日三大法人單日買賣超（張）分組長條 + 外資累計折線。"""
+    days = [d for d in inst.days if any(v is not None for v in (d.foreign, d.trust, d.dealer))]
+    if len(days) < 2:
+        return ""
+    style.apply_style()
+    labels = [d.date[5:] for d in days]            # 'MM-DD'
+    to_lots = lambda v: (v or 0) / 1000            # 股 → 張
+    foreign = [to_lots(d.foreign) for d in days]
+    trust = [to_lots(d.trust) for d in days]
+    dealer = [to_lots(d.dealer) for d in days]
+    x = np.arange(len(labels))
+    w = 0.27
+
+    fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
+    ax.bar(x - w, foreign, w, color=style.NAVY, label="外資")
+    ax.bar(x, trust, w, color=style.AMBER, label="投信")
+    ax.bar(x + w, dealer, w, color=style.TEAL, label="自營商")
+    ax.axhline(0, color=style.MUTED, linewidth=0.7)
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:,.0f}"))
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=7)
+    style.apply_cjk(ax, title=f"{ticker} 三大法人單日買賣超（張）", ylabel="買賣超 (張)")
+    style.legend_below(ax, ncol=3)
+    return _save(fig, _out(f"{ticker}_institutional.png"))

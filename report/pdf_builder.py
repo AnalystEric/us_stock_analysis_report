@@ -26,8 +26,19 @@ _CSS_PATH = Path(__file__).resolve().parent / "styles.css"
 
 
 # ---------------------------------------------------------------------------
-# 格式化
+# 格式化（貨幣感知：美股 $ + T/B/M；台股 NT$ + 億/兆）
 # ---------------------------------------------------------------------------
+# 由 build_pdf() 依報告市場別設定；預設美股。
+_CUR = {"mode": "US", "symbol": "$"}
+
+
+def _set_currency(market: str, currency: str = "") -> None:
+    if market in ("TWSE", "TPEX"):
+        _CUR["mode"], _CUR["symbol"] = "TW", "NT$"
+    else:
+        _CUR["mode"], _CUR["symbol"] = "US", "$"
+
+
 def esc(t) -> str:
     return html.escape(str(t)) if t is not None else ""
 
@@ -39,17 +50,27 @@ def money(v) -> str:
         v = float(v)
     except (TypeError, ValueError):
         return "—"
+    sym = _CUR["symbol"]
+    if _CUR["mode"] == "TW":
+        # 台股慣用 億(1e8) / 兆(1e12)
+        if abs(v) >= 1e12:
+            return f"{sym}{v / 1e12:,.2f}兆"
+        if abs(v) >= 1e8:
+            return f"{sym}{v / 1e8:,.1f}億"
+        if abs(v) >= 1e4:
+            return f"{sym}{v / 1e4:,.0f}萬"
+        return f"{sym}{v:,.0f}"
     for unit, size in (("T", 1e12), ("B", 1e9), ("M", 1e6)):
         if abs(v) >= size:
-            return f"${v / size:,.2f}{unit}"
-    return f"${v:,.0f}"
+            return f"{sym}{v / size:,.2f}{unit}"
+    return f"{sym}{v:,.0f}"
 
 
 def price(v) -> str:
     if v is None:
         return "—"
     try:
-        return f"${float(v):,.2f}"
+        return f"{_CUR['symbol']}{float(v):,.2f}"
     except (TypeError, ValueError):
         return "—"
 
@@ -120,7 +141,8 @@ def data_uri(path: str) -> str:
 # ---------------------------------------------------------------------------
 def _generate_charts(r: ReportData) -> dict[str, str]:
     t = r.profile.ticker
-    return {
+    charts.set_currency(r.profile.market)
+    out = {
         "chart_scorecard": data_uri(charts.scorecard_radar(t, r.scorecard)),
         "chart_segments": data_uri(charts.revenue_segments_chart(t, r.segments)),
         "chart_revenue_yoy": data_uri(charts.revenue_yoy_chart(t, r.financials)),
@@ -129,7 +151,15 @@ def _generate_charts(r: ReportData) -> dict[str, str]:
         "chart_price": data_uri(charts.price_candle_chart(t, r.price)),
         "chart_pe": data_uri(charts.pe_trend_chart(t, r.valuation)),
         "chart_peers": data_uri(charts.peers_chart(t, r.peers)),
+        "chart_monthly_revenue": "",
+        "chart_institutional": "",
     }
+    if r.is_tw:
+        out["chart_monthly_revenue"] = data_uri(
+            charts.monthly_revenue_chart(t, r.monthly_revenue))
+        out["chart_institutional"] = data_uri(
+            charts.institutional_chart(t, r.institutional))
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -221,8 +251,70 @@ def _build_context(r: ReportData) -> dict:
                                 if val not in (None, "N/A"))[:110]),
     } for d in sc.dimensions]
 
+    # --- 台股專屬區塊 ---
+    def _lots(shares):
+        if shares is None:
+            return "—"
+        return f"{shares / 1000:,.0f} 張"
+
+    def _lots_signed(shares):
+        """股 → 帶正負色的『張』。"""
+        if shares is None:
+            return "—"
+        v = shares / 1000
+        cls = "pos" if v > 0 else ("neg" if v < 0 else "")
+        sign = "+" if v > 0 else ""
+        return f'<span class="{cls}">{sign}{v:,.0f} 張</span>'
+
+    def _lots_signed_direct(lots):
+        """已是『張』→ 帶正負色。"""
+        if lots is None:
+            return "—"
+        cls = "pos" if lots > 0 else ("neg" if lots < 0 else "")
+        sign = "+" if lots > 0 else ""
+        return f'<span class="{cls}">{sign}{lots:,.0f} 張</span>'
+
+    mr = r.monthly_revenue
+    inst = r.institutional
+    mgn = r.margin
+    tw_ctx = {
+        "is_tw": r.is_tw,
+        "currency_label": esc(p.currency or ("TWD" if r.is_tw else "USD")),
+        # 月營收
+        "has_monthly_revenue": bool(mr.points) or mr.latest_revenue is not None,
+        "mr_period": esc(mr.latest_period) or "—",
+        "mr_revenue": money(mr.latest_revenue),
+        "mr_yoy": colored_pct_from_ratio(mr.latest_yoy),
+        "mr_mom": colored_pct_from_ratio(mr.latest_mom),
+        "mr_cum": money(mr.cum_revenue),
+        "mr_cum_yoy": colored_pct_from_ratio(mr.cum_yoy),
+        "mr_note": esc(mr.note),
+        "mr_source": esc(mr.source),
+        # 三大法人
+        "has_institutional": bool(inst.days),
+        "inst_window": inst.window_days,
+        "inst_foreign": _lots_signed(inst.foreign_sum),
+        "inst_trust": _lots_signed(inst.trust_sum),
+        "inst_dealer": _lots_signed(inst.dealer_sum),
+        "inst_total": _lots_signed(inst.total_sum),
+        "inst_note": esc(inst.sentiment_note or inst.warning),
+        "inst_source": esc(inst.source),
+        # 融資融券（餘額本身即以「張」為單位）
+        "has_margin": mgn.margin_balance is not None or mgn.short_balance is not None,
+        "margin_balance": (f"{mgn.margin_balance:,.0f} 張"
+                           if mgn.margin_balance is not None else "—"),
+        "margin_change": _lots_signed_direct(mgn.margin_change),
+        "short_balance": (f"{mgn.short_balance:,.0f} 張"
+                          if mgn.short_balance is not None else "—"),
+        "short_change": _lots_signed_direct(mgn.short_change),
+        "margin_source": esc(mgn.source),
+    }
+
     ctx = {
-        "css": _CSS_PATH.read_text(encoding="utf-8").replace("__DISCLAIMER__", DISCLAIMER_TEXT),
+        "css": _CSS_PATH.read_text(encoding="utf-8")
+                 .replace("__DISCLAIMER__", DISCLAIMER_TEXT)
+                 .replace("__FOOTER_BRAND__",
+                          "台股／美股投資分析 PDF 報告產生器"),
         "font_face_css": _font_face_css(),
         # 封面 / 基本
         "company": esc(p.company_name),
@@ -269,6 +361,7 @@ def _build_context(r: ReportData) -> dict:
         "news_items": news_items,
         "news_sources": esc(", ".join(r.news.providers_used)) or "—",
     }
+    ctx.update(tw_ctx)
     ctx.update(_generate_charts(r))
     return ctx
 
@@ -284,6 +377,7 @@ def build_pdf(report: ReportData, output_path: Path, cleanup: bool = True) -> Pa
         autoescape=select_autoescape(["html", "xml"]),
     )
     template = env.get_template("report.html.j2")
+    _set_currency(report.profile.market, report.profile.currency)
     ctx = _build_context(report)
     html_str = template.render(**ctx)
 

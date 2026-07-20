@@ -26,6 +26,8 @@ class CompanyProfile:
     long_summary: str = ""
     country: str = ""
     employees: int | None = None
+    market: str = "US"        # "US" / "TWSE"（上市）/ "TPEX"（上櫃）
+    stock_code: str = ""      # 台股純代號（如 2330），美股留空
     warning: str = ""
 
 
@@ -275,6 +277,71 @@ class ScoreCard:
 
 
 # ---------------------------------------------------------------------------
+# 台股：月營收（公開資訊觀測站 / TWSE / TPEX 官方源）
+# ---------------------------------------------------------------------------
+@dataclass
+class MonthRevPoint:
+    period: str                        # "2026-06"
+    revenue: float | None = None       # 當月營收（元）
+    yoy: float | None = None           # 去年同月增減（比例 0~1）
+    mom: float | None = None           # 上月增減（比例）
+
+
+@dataclass
+class MonthlyRevenue:
+    points: list[MonthRevPoint] = field(default_factory=list)   # 由舊到新
+    latest_period: str = ""
+    latest_revenue: float | None = None
+    latest_yoy: float | None = None
+    latest_mom: float | None = None
+    cum_revenue: float | None = None       # 今年累計營收（元）
+    cum_yoy: float | None = None           # 累計 YoY（比例）
+    note: str = ""                         # 官方備註（如成長原因）
+    source: str = ""
+    warning: str = ""
+
+
+# ---------------------------------------------------------------------------
+# 台股：三大法人買賣超（外資 / 投信 / 自營商）
+# ---------------------------------------------------------------------------
+@dataclass
+class InstDayPoint:
+    date: str                          # "2026-07-17"
+    foreign: float | None = None       # 外資買賣超（股）
+    trust: float | None = None         # 投信買賣超（股）
+    dealer: float | None = None        # 自營商買賣超（股）
+    total: float | None = None         # 三大法人合計（股）
+
+
+@dataclass
+class InstitutionalFlow:
+    days: list[InstDayPoint] = field(default_factory=list)   # 由舊到新
+    foreign_sum: float | None = None    # 期間外資累計（股）
+    trust_sum: float | None = None
+    dealer_sum: float | None = None
+    total_sum: float | None = None
+    window_days: int = 0                # 統計天數
+    sentiment_note: str = ""
+    source: str = ""
+    warning: str = ""
+
+
+# ---------------------------------------------------------------------------
+# 台股：融資融券餘額
+# ---------------------------------------------------------------------------
+@dataclass
+class MarginData:
+    date: str = ""
+    margin_balance: float | None = None      # 融資今日餘額（張 / 千股，依來源）
+    margin_change: float | None = None       # 融資增減
+    short_balance: float | None = None       # 融券今日餘額
+    short_change: float | None = None        # 融券增減
+    note: str = ""
+    source: str = ""
+    warning: str = ""
+
+
+# ---------------------------------------------------------------------------
 # 圖表路徑（產出後填入）
 # ---------------------------------------------------------------------------
 @dataclass
@@ -310,3 +377,11 @@ class ReportData:
     fundamentals: Fundamentals = field(default_factory=Fundamentals)
     scorecard: ScoreCard = field(default_factory=ScoreCard)
     charts: ChartPaths = field(default_factory=ChartPaths)
+    # 台股專屬區塊（美股報告時為空、排版層自動略過）
+    monthly_revenue: MonthlyRevenue = field(default_factory=MonthlyRevenue)
+    institutional: InstitutionalFlow = field(default_factory=InstitutionalFlow)
+    margin: MarginData = field(default_factory=MarginData)
+
+    @property
+    def is_tw(self) -> bool:
+        return self.profile.market in ("TWSE", "TPEX")

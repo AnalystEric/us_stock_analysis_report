@@ -15,6 +15,9 @@ from core.models import (
     CompanyProfile,
     FinancialsData,
     Fundamentals,
+    InstitutionalFlow,
+    MarginData,
+    MonthlyRevenue,
     NewsBundle,
     OptionsSentiment,
     PeerComparison,
@@ -26,7 +29,8 @@ from core.models import (
     SmartMoneyData,
     ValuationMultiples,
 )
-from core.ticker_resolver import resolve
+from core.market import is_tw_market
+from core.ticker_resolver import resolve_stock
 from data_sources.financials_fetcher import fetch_financials
 from data_sources.fundamentals_fetcher import fetch_fundamentals
 from data_sources.options_fetcher import fetch_options_sentiment
@@ -52,11 +56,23 @@ def _safe(step: str, func, fallback):
 
 
 def build_report_data(user_input: str) -> ReportData:
-    ticker = resolve(user_input)
+    stock = resolve_stock(user_input)
+    ticker = stock.symbol
+    is_tw = is_tw_market(stock.market)
 
     profile: CompanyProfile = _safe(
         "個股基本資訊", lambda: fetch_profile(ticker),
         CompanyProfile(ticker=ticker, company_name=ticker, warning="基本資料擷取失敗。"))
+    # 標記市場別；台股補上官方清單名稱、幣別與純代號
+    profile.market = stock.market
+    profile.stock_code = stock.code
+    if is_tw:
+        profile.currency = profile.currency or "TWD"
+        if profile.currency == "USD":
+            profile.currency = "TWD"
+        # 台股優先採用官方清單的中文簡稱（yfinance 回傳英文長名）
+        if stock.name:
+            profile.company_name = stock.name
     price: PriceData = _safe(
         "股價與技術面", lambda: fetch_price(ticker), PriceData(warning="股價資料擷取失敗。"))
     financials: FinancialsData = _safe(
@@ -99,6 +115,27 @@ def build_report_data(user_input: str) -> ReportData:
         lambda: build_scorecard(key_metrics, price, financials, valuation, rating, fundamentals),
         ScoreCard(warning="評分計算失敗。"))
 
+    # 台股專屬區塊（月營收 / 三大法人 / 融資融券）——僅台股擷取
+    monthly_revenue = MonthlyRevenue()
+    institutional = InstitutionalFlow()
+    margin = MarginData()
+    if is_tw and stock.code:
+        from data_sources.tw.institutional import fetch_institutional
+        from data_sources.tw.margin import fetch_margin
+        from data_sources.tw.monthly_revenue import fetch_monthly_revenue
+        monthly_revenue = _safe(
+            "月營收", lambda: fetch_monthly_revenue(stock.code, stock.market),
+            MonthlyRevenue(warning="月營收擷取失敗。"))
+        institutional = _safe(
+            "三大法人買賣超", lambda: fetch_institutional(stock.code, stock.market),
+            InstitutionalFlow(warning="三大法人資料擷取失敗。"))
+        margin = _safe(
+            "融資融券", lambda: fetch_margin(stock.code, stock.market),
+            MarginData(warning="融資融券資料擷取失敗。"))
+        # 月營收最新 YoY 補進關鍵數據（台股以月營收為即時營運指標）
+        if monthly_revenue.latest_yoy is not None and key_metrics.latest_revenue_yoy is None:
+            key_metrics.latest_revenue_yoy = monthly_revenue.latest_yoy
+
     # AI 質化分析（含 fallback）
     ai = _safe(
         "AI 質化分析",
@@ -121,6 +158,9 @@ def build_report_data(user_input: str) -> ReportData:
         ai=ai,
         fundamentals=fundamentals,
         scorecard=scorecard,
+        monthly_revenue=monthly_revenue,
+        institutional=institutional,
+        margin=margin,
     )
 
 

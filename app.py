@@ -30,7 +30,7 @@ from viz import interactive
 setup_logging(False)
 logger = logging.getLogger(__name__)
 
-st.set_page_config(page_title="美股投資分析報告產生器", page_icon="📈", layout="wide")
+st.set_page_config(page_title="美股／台股投資分析報告產生器", page_icon="📈", layout="wide")
 
 
 # ---------------------------------------------------------------------------
@@ -50,13 +50,27 @@ def cached_candidates(query: str):
 # ---------------------------------------------------------------------------
 # 小工具
 # ---------------------------------------------------------------------------
-def _fmt_money(v):
+def _fmt_money(v, tw=False):
     if v is None:
         return "—"
+    if tw:
+        if abs(v) >= 1e12:
+            return f"NT${v/1e12:,.2f}兆"
+        if abs(v) >= 1e8:
+            return f"NT${v/1e8:,.1f}億"
+        if abs(v) >= 1e4:
+            return f"NT${v/1e4:,.0f}萬"
+        return f"NT${v:,.0f}"
     for unit, size in (("T", 1e12), ("B", 1e9), ("M", 1e6)):
         if abs(v) >= size:
             return f"${v/size:,.2f}{unit}"
     return f"${v:,.0f}"
+
+
+def _fmt_price(v, tw=False):
+    if v is None:
+        return "—"
+    return f"{'NT$' if tw else '$'}{v:,.2f}"
 
 
 def _fmt_pct(ratio):
@@ -108,7 +122,7 @@ def _run_report(query: str):
 
     p, km = report.profile, report.key_metrics
     st.subheader(f"{p.company_name}（{p.ticker}）")
-    st.caption(f"{p.exchange_name or '美股'} · {p.sector or 'N/A'} / {p.industry or 'N/A'}")
+    st.caption(f"{p.exchange_name or ('台股' if p.market in ('TWSE','TPEX') else '美股')} · {p.sector or 'N/A'} / {p.industry or 'N/A'}")
 
     # === 綜合體質評分（最先呈現的一眼判斷）===
     sc = report.scorecard
@@ -133,19 +147,43 @@ def _run_report(query: str):
                           for lbl, val, sub in d.details])
         st.caption("評分為依公開數據以固定規則計算之客觀參考，非投資建議。")
 
+    tw = p.market in ("TWSE", "TPEX")
     st.markdown("#### 關鍵指標")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("目前股價", f"${km.current_price:,.2f}" if km.current_price else "—")
-    c2.metric("總市值", _fmt_money(km.market_cap))
+    c1.metric("目前股價", _fmt_price(km.current_price, tw))
+    c2.metric("總市值", _fmt_money(km.market_cap, tw))
     c3.metric("共識評等", km.consensus_rating or "—")
-    c4.metric("平均目標價", f"${km.target_mean:,.2f}" if km.target_mean else "—",
+    c4.metric("平均目標價", _fmt_price(km.target_mean, tw),
               delta=f"{km.implied_upside_pct:+.1f}%" if km.implied_upside_pct is not None else None)
 
     c5, c6, c7, c8 = st.columns(4)
-    c5.metric("最新季營收", _fmt_money(km.latest_revenue))
+    c5.metric("最新季營收", _fmt_money(km.latest_revenue, tw))
     c6.metric("營收 YoY", _fmt_pct(km.latest_revenue_yoy))
     c7.metric("毛利率", _fmt_pct(km.gross_margin))
     c8.metric("Forward P/E", f"{km.forward_pe:.1f}" if km.forward_pe else "—")
+
+    # 台股專屬：月營收動能 + 三大法人籌碼
+    if tw:
+        mr, inst, mgn = report.monthly_revenue, report.institutional, report.margin
+        if mr.latest_revenue is not None or mr.points:
+            st.markdown("#### 🇹🇼 月營收動能")
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric(f"當月營收（{mr.latest_period or '—'}）", _fmt_money(mr.latest_revenue, True))
+            m2.metric("月營收 YoY", _fmt_pct(mr.latest_yoy))
+            m3.metric("月營收 MoM", _fmt_pct(mr.latest_mom))
+            m4.metric("累計營收 YoY", _fmt_pct(mr.cum_yoy))
+            if mr.note:
+                st.caption(f"官方備註：{mr.note}")
+        if inst.days:
+            st.markdown(f"#### 🇹🇼 三大法人買賣超（近 {inst.window_days} 交易日累計）")
+            i1, i2, i3, i4 = st.columns(4)
+            lot = lambda v: "—" if v is None else f"{v/1000:+,.0f} 張"
+            i1.metric("外資", lot(inst.foreign_sum))
+            i2.metric("投信", lot(inst.trust_sum))
+            i3.metric("自營商", lot(inst.dealer_sum))
+            i4.metric("融資餘額", f"{mgn.margin_balance:,.0f} 張" if mgn.margin_balance is not None else "—")
+            if inst.sentiment_note:
+                st.caption(inst.sentiment_note)
 
     st.markdown("#### 核心觀點 (Core View)")
     badge = "🤖 AI 分析" if report.ai.ai_generated else "📊 數據模板"
@@ -243,15 +281,15 @@ section[data-testid="stSidebar"] { background: #EDF2F8; border-right: 1px solid 
 st.markdown(
     """
 <div class="hero">
-  <div class="eyebrow">US Equity Research · 美股投資分析</div>
-  <div class="title">📈 美股投資分析報告產生器</div>
-  <div class="sub">yfinance 資料引擎 · Pandas 深度分析 · AI 質化解讀 · 投行級 PDF 報告</div>
+  <div class="eyebrow">US / TW Equity Research · 美股・台股投資分析</div>
+  <div class="title">📈 美股／台股投資分析報告產生器</div>
+  <div class="sub">官方源 + yfinance 資料引擎 · Pandas 深度分析 · AI 質化解讀 · 投行級 PDF 報告</div>
   <div class="chips">
     <span class="chip">📊 估值與籌碼</span>
-    <span class="chip">🏦 華爾街目標價</span>
+    <span class="chip">🏦 目標價/共識</span>
+    <span class="chip">🇹🇼 月營收・三大法人</span>
     <span class="chip">🧭 護城河分析</span>
     <span class="chip">📈 技術面 K 線</span>
-    <span class="chip">📰 多來源新聞</span>
   </div>
 </div>
 """,
@@ -287,8 +325,8 @@ with st.sidebar:
 qp_ticker = st.query_params.get("ticker", "")
 
 default_val = st.session_state.get("selected_ticker", qp_ticker)
-ticker_input = st.text_input("美股代號或公司名稱", value=default_val,
-                             placeholder="例如 AAPL、NVDA、Apple、Tesla")
+ticker_input = st.text_input("股票代號或公司名稱（美股 / 台股）", value=default_val,
+                             placeholder="美股：AAPL、NVDA　｜　台股：2330、6488、台積電")
 
 col_v, col_g, _ = st.columns([1, 1, 4])
 validate = col_v.button("🔍 驗證代號")
@@ -299,7 +337,7 @@ if validate and ticker_input.strip():
     with st.spinner("查詢相符代號…"):
         cands = cached_candidates(ticker_input.strip())
     if not cands:
-        st.warning("查無相符的美股代號，請改用正確的股票代號（例如 ORCL）重試。")
+        st.warning("查無相符的代號，請改用正確的股票代號重試（美股如 ORCL、台股如 2330）。")
     else:
         st.markdown("**符合的候選代號**（點選即帶入輸入框）：")
         cols = st.columns(min(3, len(cands)))

@@ -17,7 +17,7 @@
   size: A4;
   margin: 20mm 16mm 20mm 16mm;
   @bottom-left {
-    content: "美股投資分析 PDF 報告產生器";
+    content: "__FOOTER_BRAND__";
     font-family: "CJK", "PingFang TC", "Heiti TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
     font-size: 7pt;
     color: #94A3B8;

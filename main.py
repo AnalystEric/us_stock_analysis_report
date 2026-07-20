@@ -27,8 +27,9 @@ logger = logging.getLogger(__name__)
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="美股投資分析 PDF 報告產生器（yfinance + Pandas + LLM + WeasyPrint）")
-    parser.add_argument("--input", "-i", required=True, help="美股代號或公司名稱，例如 AAPL 或 Apple")
+        description="美股／台股投資分析 PDF 報告產生器（官方源 + yfinance + Pandas + LLM + WeasyPrint）")
+    parser.add_argument("--input", "-i", required=True,
+                        help="股票代號或公司名稱。美股如 AAPL / Apple；台股如 2330 / 台積電 / 6488")
     parser.add_argument("--output-dir", "-o", default=str(OUTPUT_DIR), help="PDF 輸出資料夾（預設 ./output）")
     parser.add_argument("--verbose", "-v", action="store_true", help="顯示除錯訊息")
     parser.add_argument("--keep-charts", action="store_true", help="保留 temp_images 圖檔（除錯用）")

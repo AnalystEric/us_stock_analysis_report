@@ -10,7 +10,16 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 
+from core.market import (
+    Market,
+    default_market_for_code,
+    detect_market,
+    lookup_by_code,
+    lookup_by_name,
+    yf_suffix,
+)
 from utils.http import get_session, safe_get
 
 logger = logging.getLogger(__name__)
@@ -29,6 +38,9 @@ EXCHANGE_MAP = {
     "PCX": "NYSE Arca",
     "ASE": "NYSE American",
     "BATS": "Cboe BZX",
+    # 台股
+    "TAI": "臺灣證券交易所",
+    "TWO": "證券櫃檯買賣中心（上櫃）",
 }
 
 
@@ -36,8 +48,94 @@ class StockNotFoundError(Exception):
     """無法將輸入解析為有效股票代號。"""
 
 
+@dataclass
+class ResolvedStock:
+    """解析後的個股：symbol 為 yfinance 用代號（台股帶 .TW/.TWO）。"""
+    symbol: str            # yfinance 代號，例如 AAPL / 2330.TW / 6488.TWO
+    market: str            # "US" / "TWSE" / "TPEX"
+    code: str = ""         # 台股純代號（如 2330）；美股留空
+    name: str = ""         # 已知的公司名（台股由官方清單帶入，可為空）
+
+
 def _looks_like_ticker(text: str) -> bool:
     return bool(_TICKER_RE.match(text.strip()))
+
+
+# ---------------------------------------------------------------------------
+# 台股解析
+# ---------------------------------------------------------------------------
+def _resolve_tw(raw: str, hinted: Market) -> ResolvedStock:
+    """把台股輸入（純代號 / 中文名 / 帶 .TW·.TWO）解析為 ResolvedStock。"""
+    upper = raw.upper()
+
+    # 1) 已帶後綴 → 直接採用
+    if upper.endswith(".TWO") or upper.endswith(".TW"):
+        market = Market.TPEX if upper.endswith(".TWO") else Market.TWSE
+        code = upper.rsplit(".", 1)[0]
+        info = lookup_by_code(code)
+        if info:
+            market = Market(info["market"])
+        return ResolvedStock(symbol=f"{code}{yf_suffix(market)}", market=market.value,
+                             code=code, name=(info or {}).get("name", ""))
+
+    # 2) 純代號 → 查官方清單決定上市/上櫃
+    if _TW_CODE_RE.match(raw):
+        code = raw
+        info = lookup_by_code(code)
+        if info:
+            market = Market(info["market"])
+            return ResolvedStock(symbol=f"{code}{yf_suffix(market)}",
+                                 market=market.value, code=code, name=info["name"])
+        # 查不到清單：以聰明預設判斷（不在上市清單 → 多為上櫃 .TWO）
+        market = default_market_for_code(code)
+        logger.warning("代號 %s 不在清單中，預設當 %s 處理", code, market.value)
+        return ResolvedStock(symbol=f"{code}{yf_suffix(market)}",
+                             market=market.value, code=code)
+
+    # 3) 中文名稱 → 查清單
+    info = lookup_by_name(raw)
+    if info:
+        market = Market(info["market"])
+        logger.info("已將「%s」解析為台股 %s（%s）", raw, info["code"], info["name"])
+        return ResolvedStock(symbol=f"{info['code']}{yf_suffix(market)}",
+                             market=market.value, code=info["code"], name=info["name"])
+
+    raise StockNotFoundError(
+        f"無法將「{raw}」解析為台股，請改用股票代號（例如 2330）重試。"
+    )
+
+
+_TW_CODE_RE = re.compile(r"^\d{4,6}[A-Za-z]?$")
+
+
+def _tw_candidates(raw: str, limit: int = 6) -> list[dict]:
+    """由官方台股清單建立候選（供前端驗證 / 建議）。"""
+    from core.market import get_directory
+
+    upper = raw.upper()
+    code_q = upper.rsplit(".", 1)[0] if (
+        upper.endswith(".TW") or upper.endswith(".TWO")) else raw
+    directory = get_directory()
+    ex_name = {"TWSE": "上市", "TPEX": "上櫃"}
+    out: list[dict] = []
+
+    # 純代號：完全相符優先，其餘做前綴比對
+    if _TW_CODE_RE.match(code_q):
+        matches = ([(code_q, directory[code_q])] if code_q in directory else [])
+        matches += [(c, i) for c, i in directory.items()
+                    if c.startswith(code_q) and c != code_q]
+    else:
+        matches = [(c, i) for c, i in directory.items() if raw in i["name"]]
+        matches.sort(key=lambda kv: (len(kv[1]["name"]), kv[0]))
+
+    for code, info in matches[:limit]:
+        suffix = ".TWO" if info["market"] == "TPEX" else ".TW"
+        out.append({
+            "symbol": f"{code}{suffix}",
+            "name": info["name"],
+            "exchange": ex_name.get(info["market"], info["market"]),
+        })
+    return out
 
 
 def _yahoo_search(query: str) -> list[dict]:
@@ -98,6 +196,11 @@ def search_candidates(query: str, limit: int = 6) -> list[dict]:
     raw = (query or "").strip()
     if not raw:
         return []
+
+    # 台股：直接查官方清單目錄（純代號 / 中文名 / 帶後綴）
+    if detect_market(raw) in (Market.TWSE, Market.TPEX):
+        return _tw_candidates(raw, limit)
+
     quotes = _yahoo_search(raw) or _yfinance_search(raw)
     out: list[dict] = []
     seen: set[str] = set()
@@ -119,26 +222,35 @@ def search_candidates(query: str, limit: int = 6) -> list[dict]:
     return out
 
 
-def resolve(user_input: str) -> str:
-    """回傳正規化後的股票代號（大寫）。找不到時拋 StockNotFoundError。"""
+def resolve_stock(user_input: str) -> ResolvedStock:
+    """解析輸入為 ResolvedStock（含市場別）。支援美股與台股。"""
     raw = (user_input or "").strip()
     if not raw:
         raise StockNotFoundError("輸入為空，請提供股票代號或公司名稱。")
 
+    market = detect_market(raw)
+    if market in (Market.TWSE, Market.TPEX):
+        return _resolve_tw(raw, market)
+
+    # --- 美股 ---
     quotes = _yahoo_search(raw) or _yfinance_search(raw)
     best = _pick_best(quotes, raw)
-
     if best and best.get("symbol"):
         symbol = best["symbol"].upper()
         name = best.get("shortname") or best.get("longname") or ""
         logger.info("已將輸入「%s」解析為代號 %s（%s）", raw, symbol, name)
-        return symbol
+        return ResolvedStock(symbol=symbol, market=Market.US.value, name=name)
 
     if _looks_like_ticker(raw):
         symbol = raw.upper()
         logger.warning("搜尋無結果，直接沿用輸入為代號：%s", symbol)
-        return symbol
+        return ResolvedStock(symbol=symbol, market=Market.US.value)
 
     raise StockNotFoundError(
-        f"無法將「{raw}」解析為有效的美股代號，請改用股票代號（例如 AAPL）重試。"
+        f"無法將「{raw}」解析為有效的股票代號，請改用代號（美股如 AAPL、台股如 2330）重試。"
     )
+
+
+def resolve(user_input: str) -> str:
+    """回傳正規化後的 yfinance 股票代號（相容舊介面）。"""
+    return resolve_stock(user_input).symbol

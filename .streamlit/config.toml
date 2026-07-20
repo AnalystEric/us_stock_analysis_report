@@ -1,5 +1,7 @@
 [server]
-headless = true
+# 本機執行會自動開啟瀏覽器；雲端(Streamlit Cloud)會強制 headless，
+# Docker 由 CMD 的 --server.headless=true 覆寫，故此設定不影響部署。
+headless = false
 address = "0.0.0.0"
 # 上傳/回應大小上限（MB）
 maxUploadSize = 50

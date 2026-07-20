@@ -32,6 +32,15 @@ def _pct_raw(v, digits=1):
     return f"{v:.{digits}f}%"
 
 
+# 貨幣模式（由 analyst.generate_ai_content 於產文前設定）
+_CUR_MODE = "US"
+
+
+def set_currency(market: str) -> None:
+    global _CUR_MODE
+    _CUR_MODE = "TW" if market in ("TWSE", "TPEX") else "US"
+
+
 def _money(v):
     if v is None:
         return "N/A"
@@ -39,6 +48,14 @@ def _money(v):
         v = float(v)
     except (TypeError, ValueError):
         return "N/A"
+    if _CUR_MODE == "TW":
+        if abs(v) >= 1e12:
+            return f"NT${v / 1e12:,.2f}兆"
+        if abs(v) >= 1e8:
+            return f"NT${v / 1e8:,.1f}億"
+        if abs(v) >= 1e4:
+            return f"NT${v / 1e4:,.0f}萬"
+        return f"NT${v:,.0f}"
     for unit, size in (("T", 1e12), ("B", 1e9), ("M", 1e6)):
         if abs(v) >= size:
             return f"${v / size:,.2f}{unit}"

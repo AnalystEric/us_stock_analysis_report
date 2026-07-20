@@ -12,7 +12,7 @@
 
 <!-- ===== 封面 ===== -->
 <section class="cover">
-  <div class="eyebrow">US Equity Research · 美股投資分析</div>
+  <div class="eyebrow">{% if is_tw %}Taiwan Equity Research · 台股投資分析{% else %}US Equity Research · 美股投資分析{% endif %}</div>
   <h1>{{ company }}</h1>
   <div class="ticker">{{ ticker }}{% if exchange %} · {{ exchange }}{% endif %}</div>
   <div>
@@ -22,9 +22,9 @@
   <div class="meta">
     <div>報告產出日期：{{ generated_on }}</div>
     <div>總市值：{{ market_cap }}</div>
-    <div>目前股價：{{ current_price }}　華爾街共識：{{ consensus or '—' }}</div>
+    <div>目前股價：{{ current_price }}　{% if is_tw %}分析師共識{% else %}華爾街共識{% endif %}：{{ consensus or '—' }}</div>
     <div style="margin-top:10px;font-size:8.5pt;color:#A9C0D6;">
-      資料來源：yfinance 及公開財經資料　·　質化分析：{{ ai_provider }}
+      {% if is_tw %}資料來源：TWSE／TPEX 官方公開資料、公開資訊觀測站、yfinance{% else %}資料來源：yfinance 及公開財經資料{% endif %}　·　質化分析：{{ ai_provider }}
     </div>
   </div>
 </section>
@@ -91,6 +91,26 @@
 <!-- ===== 第二章：深度財務數據視覺化 ===== -->
 <section class="chapter-wrap">
   <h1 class="chapter">第二章　深度財務數據視覺化</h1>
+
+  {% if is_tw and has_monthly_revenue %}
+  <h2 class="section">月營收動能（台股即時營運指標）</h2>
+  <table class="kpi-table">
+    <tbody>
+      <tr><td class="label">最新月份</td><td class="value">{{ mr_period }}</td>
+          <td class="label">當月營收</td><td class="value">{{ mr_revenue }}</td></tr>
+      <tr><td class="label">月營收 YoY（年增）</td><td class="value">{{ mr_yoy|safe }}</td>
+          <td class="label">月營收 MoM（月增）</td><td class="value">{{ mr_mom|safe }}</td></tr>
+      <tr><td class="label">今年累計營收</td><td class="value">{{ mr_cum }}</td>
+          <td class="label">累計營收 YoY</td><td class="value">{{ mr_cum_yoy|safe }}</td></tr>
+    </tbody>
+  </table>
+  {% if mr_note %}<p class="muted">官方備註：{{ mr_note }}</p>{% endif %}
+  {% if chart_monthly_revenue %}
+  <figure><img src="{{ chart_monthly_revenue }}"><figcaption>圖表 A：近 15 個月月營收與年增率 (YoY)</figcaption></figure>
+  {% endif %}
+  {% if mr_source %}<p class="muted">資料來源：{{ mr_source }}</p>{% endif %}
+  {% endif %}
+
   {% if chart_revenue_yoy %}
   <figure><img src="{{ chart_revenue_yoy }}"><figcaption>圖表 2：近 8 季營收與年增率 (YoY)</figcaption></figure>
   {% endif %}
@@ -149,6 +169,39 @@
   {% if chart_price %}
   <figure><img src="{{ chart_price }}"><figcaption>圖表 5：近 1 年股價 K 線圖（疊加 50/200 日均線與成交量）</figcaption></figure>
   {% endif %}
+
+  {% if is_tw %}
+  {# ---- 台股籌碼：三大法人 + 融資融券 ---- #}
+  {% if has_institutional %}
+  <h3 class="sub">三大法人買賣超（近 {{ inst_window }} 個交易日累計）</h3>
+  <table>
+    <tbody>
+      <tr><td class="label">外資</td><td class="value">{{ inst_foreign|safe }}</td>
+          <td class="label">投信</td><td class="value">{{ inst_trust|safe }}</td></tr>
+      <tr><td class="label">自營商</td><td class="value">{{ inst_dealer|safe }}</td>
+          <td class="label">三大法人合計</td><td class="value">{{ inst_total|safe }}</td></tr>
+    </tbody>
+  </table>
+  {% if inst_note %}<p class="muted">{{ inst_note }}</p>{% endif %}
+  {% if chart_institutional %}
+  <figure><img src="{{ chart_institutional }}"><figcaption>圖表 6：三大法人單日買賣超（張）</figcaption></figure>
+  {% endif %}
+  {% if inst_source %}<p class="muted">資料來源：{{ inst_source }}</p>{% endif %}
+  {% endif %}
+  {% if has_margin %}
+  <h3 class="sub">融資融券餘額</h3>
+  <table>
+    <tbody>
+      <tr><td class="label">融資餘額</td><td class="value">{{ margin_balance }}</td>
+          <td class="label">融資增減</td><td class="value">{{ margin_change|safe }}</td></tr>
+      <tr><td class="label">融券餘額</td><td class="value">{{ short_balance }}</td>
+          <td class="label">融券增減</td><td class="value">{{ short_change|safe }}</td></tr>
+    </tbody>
+  </table>
+  {% if margin_source %}<p class="muted">資料來源：{{ margin_source }}</p>{% endif %}
+  {% endif %}
+  {% else %}
+  {# ---- 美股籌碼：選擇權 + 機構/內部人 ---- #}
   <table>
     <tbody>
       <tr><td class="label">選擇權近月到期日</td><td class="value">{{ opt_expiry }}</td>
@@ -161,6 +214,7 @@
   {% if insider_summary %}
   <h3 class="sub">近期內部人交易摘要</h3>
   <ul>{% for line in insider_summary %}<li>{{ line }}</li>{% endfor %}</ul>
+  {% endif %}
   {% endif %}
 </section>
 

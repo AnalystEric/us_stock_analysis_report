@@ -31,6 +31,9 @@ def generate_ai_content(
     provider = llm_client.detect_provider()
     ai = AIContent(provider=llm_client.provider_label())
 
+    # 依市場設定文字內金額格式（台股 NT$／億／兆）
+    prompts.set_currency(profile.market)
+
     facts = prompts.build_facts(profile, km, financials, valuation, rating, peers, news)
 
     # 模板 fallback（永遠先備好，確保任何情況都有內容；逐一容錯避免單一區塊出錯導致全空）
