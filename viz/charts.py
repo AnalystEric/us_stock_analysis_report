@@ -20,7 +20,14 @@ import matplotlib.ticker as mticker
 import numpy as np
 
 from config import CHART_DPI, TEMP_IMAGES_DIR
-from core.models import FinancialsData, PeerComparison, PriceData, RevenueSegments, ValuationMultiples
+from core.models import (
+    FinancialsData,
+    PeerComparison,
+    PriceData,
+    RevenueSegments,
+    ScoreCard,
+    ValuationMultiples,
+)
 from viz import style
 
 logger = logging.getLogger(__name__)
@@ -55,6 +62,49 @@ def _millions(v, _pos=None):
     if abs(v) >= 1e6:
         return f"{v/1e6:.0f}M"
     return f"{v:.0f}"
+
+
+def scorecard_radar(ticker: str, card: ScoreCard) -> str:
+    """五維綜合體質評分雷達圖。"""
+    dims = card.dimensions
+    if not dims or card.overall is None:
+        return ""
+    style.apply_style()
+    font = style.fp()
+
+    labels = [d.name.split(" ")[0] for d in dims]         # 取中文名（如「價值」）
+    values = [d.score if d.score is not None else 0 for d in dims]
+    N = len(dims)
+    angles = np.linspace(0, 2 * np.pi, N, endpoint=False).tolist()
+    v_closed = values + values[:1]
+    a_closed = angles + angles[:1]
+
+    fig, ax = plt.subplots(figsize=(6.4, 6.4), subplot_kw=dict(polar=True))
+    ax.set_facecolor("white")
+    ax.plot(a_closed, v_closed, color=style.NAVY, linewidth=2.2)
+    ax.fill(a_closed, v_closed, color=style.STEEL, alpha=0.28)
+
+    ax.set_xticks(angles)
+    ax.set_xticklabels(labels)
+    for lbl in ax.get_xticklabels():
+        if font is not None:
+            lbl.set_fontproperties(font)
+        lbl.set_fontsize(12)
+    ax.set_ylim(0, 100)
+    ax.set_yticks([20, 40, 60, 80])
+    ax.set_yticklabels(["20", "40", "60", "80"], color=style.MUTED, fontsize=8)
+    ax.set_rlabel_position(18)
+    ax.grid(color=style.GRID, linewidth=0.8)
+
+    for a, v in zip(angles, values):
+        ax.text(a, min(v + 8, 104), f"{v:.0f}", ha="center", va="center",
+                color=style.NAVY, fontsize=11, fontweight="bold",
+                fontproperties=font)
+
+    title = f"{ticker} 綜合體質評分（總分 {card.overall:.0f} · {card.verdict}）"
+    ax.set_title(title, fontproperties=font, fontsize=13, fontweight="bold", pad=24, color=style.NAVY)
+    fig.subplots_adjust(top=0.85, bottom=0.08)
+    return _save(fig, _out(f"{ticker}_scorecard.png"))
 
 
 def revenue_segments_chart(ticker: str, seg: RevenueSegments) -> str:

@@ -49,6 +49,28 @@
       {% endfor %}
     </tbody>
   </table>
+
+  {% if has_scorecard %}
+  <h2 class="section">綜合體質評分</h2>
+  <div class="score-wrap">
+    <div class="score-left">
+      <div class="score-big">{{ sc_overall }}<span class="score-max"> / 100</span></div>
+      <div class="score-verdict">{{ sc_verdict }}</div>
+    </div>
+    <div class="score-right">
+      {% if chart_scorecard %}<img src="{{ chart_scorecard }}">{% endif %}
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>維度</th><th class="num">分數</th><th>主要指標</th></tr></thead>
+    <tbody>
+      {% for s in sc_rows %}
+      <tr><td>{{ s.name }}</td><td class="num">{{ s.score }}</td><td class="muted">{{ s.detail }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">評分為依公開數據以固定規則計算之客觀參考（0–100 分，越高越佳），非投資建議。</p>
+  {% endif %}
 </section>
 
 <!-- ===== 第一章：業務概述與護城河 ===== -->

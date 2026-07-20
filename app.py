@@ -110,6 +110,29 @@ def _run_report(query: str):
     st.subheader(f"{p.company_name}（{p.ticker}）")
     st.caption(f"{p.exchange_name or '美股'} · {p.sector or 'N/A'} / {p.industry or 'N/A'}")
 
+    # === 綜合體質評分（最先呈現的一眼判斷）===
+    sc = report.scorecard
+    if sc.overall is not None:
+        st.markdown("#### 綜合體質評分")
+        sa, sb = st.columns([1, 1.15])
+        with sa:
+            st.metric("總分", f"{sc.overall:.0f} / 100", sc.verdict)
+            for d in sc.dimensions:
+                val = 0.0 if d.score is None else max(0.0, min(d.score, 100)) / 100
+                label = f"{d.name}：{d.score:.0f}" if d.score is not None else f"{d.name}：N/A"
+                st.progress(val, text=label)
+        with sb:
+            radar = charts.scorecard_radar(p.ticker, sc)
+            if radar:
+                st.image(radar, use_container_width=True)
+        with st.expander("評分明細（各指標數值與子分數，規則透明）"):
+            for d in sc.dimensions:
+                head = f"**{d.name}**（{d.score:.0f}）" if d.score is not None else f"**{d.name}**（N/A）"
+                st.markdown(head)
+                st.table([{"指標": lbl, "數值": val, "分數": ("—" if sub is None else sub)}
+                          for lbl, val, sub in d.details])
+        st.caption("評分為依公開數據以固定規則計算之客觀參考，非投資建議。")
+
     st.markdown("#### 關鍵指標")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("目前股價", f"${km.current_price:,.2f}" if km.current_price else "—")

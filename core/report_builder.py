@@ -9,10 +9,12 @@ from datetime import date, datetime, timezone
 
 from ai.analyst import generate_ai_content
 from analytics.metrics import assemble_key_metrics, build_scenarios
+from analytics.scoring import build_scorecard
 from core.models import (
     AIContent,
     CompanyProfile,
     FinancialsData,
+    Fundamentals,
     NewsBundle,
     OptionsSentiment,
     PeerComparison,
@@ -20,11 +22,13 @@ from core.models import (
     RatingData,
     ReportData,
     RevenueSegments,
+    ScoreCard,
     SmartMoneyData,
     ValuationMultiples,
 )
 from core.ticker_resolver import resolve
 from data_sources.financials_fetcher import fetch_financials
+from data_sources.fundamentals_fetcher import fetch_fundamentals
 from data_sources.options_fetcher import fetch_options_sentiment
 from data_sources.ownership_fetcher import fetch_smart_money
 from data_sources.peers_fetcher import fetch_peers
@@ -75,6 +79,9 @@ def build_report_data(user_input: str) -> ReportData:
         "同業比較", lambda: fetch_peers(ticker), PeerComparison(warning="同業比較擷取失敗。"))
     news: NewsBundle = _safe(
         "新聞", lambda: fetch_news(ticker, profile.company_name), NewsBundle())
+    fundamentals: Fundamentals = _safe(
+        "基本面指標", lambda: fetch_fundamentals(ticker),
+        Fundamentals(warning="基本面資料擷取失敗。"))
 
     # 補齊評等的目前股價與隱含空間、情境
     if rating.current_price is None:
@@ -85,6 +92,12 @@ def build_report_data(user_input: str) -> ReportData:
 
     # 關鍵數據彙整
     key_metrics = assemble_key_metrics(profile, price, financials, valuation, rating)
+
+    # 綜合體質評分（純數據，不需 API Key）
+    scorecard = _safe(
+        "綜合體質評分",
+        lambda: build_scorecard(key_metrics, price, financials, valuation, rating, fundamentals),
+        ScoreCard(warning="評分計算失敗。"))
 
     # AI 質化分析（含 fallback）
     ai = _safe(
@@ -106,6 +119,8 @@ def build_report_data(user_input: str) -> ReportData:
         peers=peers,
         news=news,
         ai=ai,
+        fundamentals=fundamentals,
+        scorecard=scorecard,
     )
 
 

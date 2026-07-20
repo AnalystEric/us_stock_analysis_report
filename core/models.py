@@ -232,10 +232,54 @@ class AIContent:
 
 
 # ---------------------------------------------------------------------------
+# 基本面（供評分使用）
+# ---------------------------------------------------------------------------
+@dataclass
+class Fundamentals:
+    roe: float | None = None              # 股東權益報酬率（比例）
+    roa: float | None = None
+    profit_margin: float | None = None
+    gross_margin: float | None = None
+    operating_margin: float | None = None
+    revenue_growth: float | None = None   # 最近一期營收年增（比例）
+    earnings_growth: float | None = None
+    debt_to_equity: float | None = None   # yfinance 多以百分比表示（如 151.9）
+    current_ratio: float | None = None
+    quick_ratio: float | None = None
+    total_cash: float | None = None
+    total_debt: float | None = None
+    free_cashflow: float | None = None
+    dividend_yield: float | None = None
+    payout_ratio: float | None = None
+    warning: str = ""
+
+
+# ---------------------------------------------------------------------------
+# 綜合體質評分
+# ---------------------------------------------------------------------------
+@dataclass
+class DimensionScore:
+    key: str                      # value/growth/profitability/health/momentum
+    name: str                     # 中文名稱
+    score: float | None = None    # 0~100；None 表示資料不足
+    note: str = ""
+    details: list[tuple] = field(default_factory=list)  # (指標, 數值字串, 子分數)
+
+
+@dataclass
+class ScoreCard:
+    dimensions: list[DimensionScore] = field(default_factory=list)
+    overall: float | None = None
+    verdict: str = ""             # 體質優異 / 穩健 / 中性 / 偏弱 / 疲弱
+    warning: str = ""
+
+
+# ---------------------------------------------------------------------------
 # 圖表路徑（產出後填入）
 # ---------------------------------------------------------------------------
 @dataclass
 class ChartPaths:
+    scorecard: str = ""
     revenue_segments: str = ""
     revenue_yoy: str = ""
     margins: str = ""
@@ -263,4 +307,6 @@ class ReportData:
     peers: PeerComparison
     news: NewsBundle
     ai: AIContent
+    fundamentals: Fundamentals = field(default_factory=Fundamentals)
+    scorecard: ScoreCard = field(default_factory=ScoreCard)
     charts: ChartPaths = field(default_factory=ChartPaths)

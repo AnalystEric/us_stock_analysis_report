@@ -121,6 +121,7 @@ def data_uri(path: str) -> str:
 def _generate_charts(r: ReportData) -> dict[str, str]:
     t = r.profile.ticker
     return {
+        "chart_scorecard": data_uri(charts.scorecard_radar(t, r.scorecard)),
         "chart_segments": data_uri(charts.revenue_segments_chart(t, r.segments)),
         "chart_revenue_yoy": data_uri(charts.revenue_yoy_chart(t, r.financials)),
         "chart_margins": data_uri(charts.margins_chart(t, r.financials)),
@@ -212,6 +213,14 @@ def _build_context(r: ReportData) -> dict:
     sm = r.smart_money
     opt = r.options
 
+    sc = r.scorecard
+    score_rows = [{
+        "name": esc(d.name),
+        "score": (f"{d.score:.0f}" if d.score is not None else "—"),
+        "detail": esc("、".join(f"{lbl} {val}" for lbl, val, _ in d.details
+                                if val not in (None, "N/A"))[:110]),
+    } for d in sc.dimensions]
+
     ctx = {
         "css": _CSS_PATH.read_text(encoding="utf-8").replace("__DISCLAIMER__", DISCLAIMER_TEXT),
         "font_face_css": _font_face_css(),
@@ -234,6 +243,11 @@ def _build_context(r: ReportData) -> dict:
         "moat_html": para_html(r.ai.moat),
         "risks_html": para_html(r.ai.risks),
         "conclusion_html": para_html(r.ai.conclusion),
+        # 綜合體質評分
+        "has_scorecard": sc.overall is not None,
+        "sc_overall": (f"{sc.overall:.0f}" if sc.overall is not None else "—"),
+        "sc_verdict": esc(sc.verdict),
+        "sc_rows": score_rows,
         # 表格
         "kpi_rows": kpi_rows,
         "valuation_rows": valuation_rows,
