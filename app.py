@@ -53,7 +53,7 @@ def cached_candidates(query: str):
 def _fmt_money(v):
     if v is None:
         return "—"
-    for unit, size in (("兆", 1e12), ("十億", 1e9), ("百萬", 1e6)):
+    for unit, size in (("T", 1e12), ("B", 1e9), ("M", 1e6)):
         if abs(v) >= size:
             return f"${v/size:,.2f}{unit}"
     return f"${v:,.0f}"

@@ -49,7 +49,7 @@ def _save(fig, path: Path) -> str:
 
 def _millions(v, _pos=None):
     if abs(v) >= 1e12:
-        return f"{v/1e12:.1f}兆"
+        return f"{v/1e12:.1f}T"
     if abs(v) >= 1e9:
         return f"{v/1e9:.0f}B"
     if abs(v) >= 1e6:

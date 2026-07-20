@@ -33,13 +33,20 @@ def generate_ai_content(
 
     facts = prompts.build_facts(profile, km, financials, valuation, rating, peers, news)
 
-    # 模板 fallback（永遠先備好，確保任何情況都有內容）
+    # 模板 fallback（永遠先備好，確保任何情況都有內容；逐一容錯避免單一區塊出錯導致全空）
+    def _safe_tpl(fn, *args, label=""):
+        try:
+            return fn(*args)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("模板 %s 生成失敗: %s", label, exc)
+            return "（本區塊資料不足，暫無法生成內容。）"
+
     templates = {
-        "core_view": prompts.template_core_view(profile, km, valuation, rating),
-        "business_overview": prompts.template_business_overview(profile),
-        "moat": prompts.template_moat(profile, peers),
-        "risks": prompts.template_risks(profile, valuation, rating),
-        "conclusion": prompts.template_conclusion(profile, km, rating),
+        "core_view": _safe_tpl(prompts.template_core_view, profile, km, financials, valuation, rating, peers, label="core_view"),
+        "business_overview": _safe_tpl(prompts.template_business_overview, profile, km, financials, valuation, label="business_overview"),
+        "moat": _safe_tpl(prompts.template_moat, profile, km, financials, valuation, peers, label="moat"),
+        "risks": _safe_tpl(prompts.template_risks, profile, km, financials, valuation, rating, label="risks"),
+        "conclusion": _safe_tpl(prompts.template_conclusion, profile, km, financials, rating, label="conclusion"),
     }
 
     any_ai = False

@@ -50,7 +50,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 # 模型可用環境變數覆寫
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8").strip()
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o").strip()
-LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "1500"))
+LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "3000"))  # 提高上限以容納更詳細的質化分析
 
 DISCLAIMER_TEXT = (
     "所有投資相關內容僅供參考，不構成任何投資建議，使用者應自行評估風險。"
