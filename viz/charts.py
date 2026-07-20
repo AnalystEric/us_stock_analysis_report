@@ -102,10 +102,10 @@ def revenue_yoy_chart(ticker: str, fin: FinancialsData) -> str:
     ax2.set_ylabel("YoY (%)", fontproperties=style.fp())
     ax2.grid(False)
 
-    # 合併圖例
+    # 合併圖例（置於圖表下方，避免覆蓋長條 / 折線）
     lines = [plt.Rectangle((0, 0), 1, 1, color=style.STEEL),
              plt.Line2D([0], [0], color=style.AMBER, marker="o")]
-    ax1.legend(lines, ["營收", "YoY %"], prop=style.fp(), loc="upper left")
+    style.legend_below(ax1, handles=lines, labels=["營收", "YoY %"], ncol=2)
     return _save(fig, _out(f"{ticker}_revenue_yoy.png"))
 
 
@@ -133,7 +133,7 @@ def margins_chart(ticker: str, fin: FinancialsData) -> str:
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.0f}%"))
     ax.axhline(0, color=style.MUTED, linewidth=0.6)
     style.apply_cjk(ax, title=f"{ticker} 季度利潤率趨勢", ylabel="百分比 (%)")
-    style.legend_cjk(ax, loc="best")
+    style.legend_below(ax, ncol=2)
     return _save(fig, _out(f"{ticker}_margins.png"))
 
 
@@ -173,7 +173,7 @@ def eps_chart(ticker: str, fin: FinancialsData) -> str:
         plt.Rectangle((0, 0), 1, 1, color=style.GREEN),
         plt.Rectangle((0, 0), 1, 1, color=style.RED),
     ]
-    ax.legend(handles, ["市場預估", "實際 (Beat)", "實際 (Miss)"], prop=style.fp(), loc="best")
+    style.legend_below(ax, handles=handles, labels=["市場預估", "實際 (Beat)", "實際 (Miss)"], ncol=3)
     return _save(fig, _out(f"{ticker}_eps.png"))
 
 
@@ -215,6 +215,20 @@ def price_candle_chart(ticker: str, price: PriceData) -> str:
             fig.suptitle(title, fontproperties=font, fontsize=13, fontweight="bold")
         else:
             fig.suptitle(title, fontsize=13, fontweight="bold")
+
+        # 均線圖例（置於整張圖下方，不覆蓋 K 線與成交量）
+        ma_handles, ma_labels = [], []
+        if "MA50" in df.columns:
+            ma_handles.append(plt.Line2D([0], [0], color=style.AMBER, lw=1.4))
+            ma_labels.append("50 日均線")
+        if "MA200" in df.columns:
+            ma_handles.append(plt.Line2D([0], [0], color=style.TEAL, lw=1.4))
+            ma_labels.append("200 日均線")
+        if ma_handles:
+            fig.legend(ma_handles, ma_labels, loc="upper center",
+                       ncol=len(ma_handles), frameon=False, prop=font,
+                       bbox_to_anchor=(0.5, 0.02))
+
         fig.savefig(path, dpi=CHART_DPI, bbox_inches="tight", facecolor="white")
         plt.close(fig)
         return str(path)
@@ -237,7 +251,9 @@ def _price_line_fallback(ticker: str, price: PriceData) -> str:
     if "MA200" in df:
         ax1.plot(df.index, df["MA200"], color=style.TEAL, linewidth=1.0, label="200 日均線")
     style.apply_cjk(ax1, title=f"{ticker} 近一年股價走勢", ylabel="股價 (USD)")
-    style.legend_cjk(ax1, loc="best")
+    _h, _l = ax1.get_legend_handles_labels()
+    fig.legend(_h, _l, loc="upper center", ncol=3, frameon=False, prop=style.fp(),
+               bbox_to_anchor=(0.5, 0.02))
     if "Volume" in df:
         ax2.bar(df.index, df["Volume"], color=style.LIGHT_BLUE, width=1.0)
         ax2.yaxis.set_major_formatter(mticker.FuncFormatter(_millions))
@@ -267,8 +283,7 @@ def pe_trend_chart(ticker: str, val: ValuationMultiples) -> str:
     style.apply_cjk(ax, title=f"{ticker} 近 3 年近似本益比 (P/E) 趨勢", ylabel="P/E")
     # 旋轉需在套用字型之後，確保旋轉不被覆寫
     plt.setp(ax.get_xticklabels(), rotation=30, ha="right", rotation_mode="anchor")
-    style.legend_cjk(ax, loc="best")
-    fig.subplots_adjust(bottom=0.22)
+    style.legend_below(ax, ncol=2)
     return _save(fig, _out(f"{ticker}_pe.png"))
 
 
@@ -291,5 +306,5 @@ def peers_chart(ticker: str, peers: PeerComparison) -> str:
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:.0f}%"))
     ax.axhline(0, color=style.MUTED, linewidth=0.6)
     style.apply_cjk(ax, title=f"{ticker} 與同業 毛利率 / 淨利率比較", ylabel="百分比 (%)")
-    style.legend_cjk(ax, loc="best")
+    style.legend_below(ax, ncol=2)
     return _save(fig, _out(f"{ticker}_peers.png"))

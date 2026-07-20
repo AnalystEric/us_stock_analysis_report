@@ -73,3 +73,17 @@ def legend_cjk(ax, **kwargs):
     font = fp()
     leg = ax.legend(prop=font, **kwargs)
     return leg
+
+
+def legend_below(ax, handles=None, labels=None, ncol=2):
+    """將圖例統一置於圖表『下方外側』，永遠不會覆蓋資料。
+
+    搭配 savefig(bbox_inches="tight") 會自動把圖例納入輸出、不被裁切。
+    """
+    font = fp()
+    kw = dict(prop=font, loc="upper center", bbox_to_anchor=(0.5, -0.28),
+              ncol=ncol, frameon=False, borderaxespad=0.0, columnspacing=1.6,
+              handlelength=1.8)
+    if handles is not None:
+        return ax.legend(handles, labels, **kw)
+    return ax.legend(**kw)
