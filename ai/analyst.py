@@ -62,9 +62,17 @@ def generate_ai_content(
     ai.conclusion = results["conclusion"]
     ai.ai_generated = any_ai
     if not any_ai:
-        ai.notice = AI_FALLBACK_NOTICE
-        ai.provider = "template"
-        logger.info("未使用 LLM，質化區塊以純數據模板生成")
+        if provider is not None:
+            # 有提供金鑰但呼叫失敗 → 顯示具體原因（例如 credit 不足 / key 無效）
+            err = llm_client.last_error() or "未知原因"
+            ai.notice = (f"⚠️ 已偵測到 {ai.provider} 金鑰，但 AI 呼叫失敗，已改用純數據模板。"
+                         f"原因：{err}")
+            ai.provider = "template（AI 呼叫失敗）"
+            logger.warning("LLM 呼叫失敗，降級模板：%s", err)
+        else:
+            ai.notice = AI_FALLBACK_NOTICE
+            ai.provider = "template"
+            logger.info("未偵測到金鑰，質化區塊以純數據模板生成")
     else:
         logger.info("質化區塊由 %s 生成", ai.provider)
     return ai

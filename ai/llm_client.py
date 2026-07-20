@@ -21,6 +21,28 @@ logger = logging.getLogger(__name__)
 # 執行時可由前端注入的金鑰（優先於環境變數）。僅存於記憶體，不寫檔、不記錄。
 _RUNTIME: dict[str, str | None] = {"anthropic_key": None, "openai_key": None}
 
+# 最近一次 LLM 呼叫的錯誤訊息（供前端顯示失敗原因，例如 credit 不足 / key 無效）
+_LAST_ERROR: dict[str, str] = {"msg": ""}
+
+
+def last_error() -> str:
+    return _LAST_ERROR["msg"]
+
+
+def _friendly_error(exc: Exception) -> str:
+    """把常見錯誤轉成好懂的中文提示。"""
+    text = str(exc)
+    low = text.lower()
+    if "credit balance is too low" in low or "billing" in low:
+        return "帳戶 credit 不足：請到 console.anthropic.com（或 platform.openai.com）Billing 購買額度。"
+    if "authentication" in low or "invalid x-api-key" in low or "401" in low or "invalid_api_key" in low:
+        return "API Key 無效：請確認金鑰是否正確、未過期。"
+    if "rate limit" in low or "429" in low:
+        return "觸發速率限制（429）：請稍後再試。"
+    if "model" in low and ("not found" in low or "does not exist" in low or "404" in low):
+        return "模型名稱無法使用：請確認帳戶是否有該模型權限。"
+    return text[:200]
+
 
 def set_runtime_keys(anthropic_key: str = "", openai_key: str = "") -> None:
     """由前端（如 Streamlit）注入使用者自帶金鑰；空字串代表清除。"""
@@ -68,6 +90,7 @@ def _complete_anthropic(system: str, prompt: str) -> str | None:
     try:
         import anthropic
     except ImportError:
+        _LAST_ERROR["msg"] = "未安裝 anthropic 套件。"
         logger.warning("未安裝 anthropic 套件，略過 Anthropic 呼叫")
         return None
     try:
@@ -79,12 +102,14 @@ def _complete_anthropic(system: str, prompt: str) -> str | None:
             messages=[{"role": "user", "content": prompt}],
         )
         if getattr(resp, "stop_reason", None) == "refusal":
+            _LAST_ERROR["msg"] = "Anthropic 以安全理由拒絕回應（refusal）。"
             logger.warning("Anthropic 回應 refusal，改用模板")
             return None
         parts = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
         text = "\n".join(p for p in parts if p).strip()
         return text or None
     except Exception as exc:  # noqa: BLE001 - LLM 失敗不可中斷報告
+        _LAST_ERROR["msg"] = _friendly_error(exc)
         logger.warning("Anthropic 呼叫失敗（降級模板）: %s", exc)
         return None
 
@@ -93,6 +118,7 @@ def _complete_openai(system: str, prompt: str) -> str | None:
     try:
         import openai
     except ImportError:
+        _LAST_ERROR["msg"] = "未安裝 openai 套件。"
         logger.warning("未安裝 openai 套件，略過 OpenAI 呼叫")
         return None
     try:
@@ -108,12 +134,14 @@ def _complete_openai(system: str, prompt: str) -> str | None:
         text = (resp.choices[0].message.content or "").strip()
         return text or None
     except Exception as exc:  # noqa: BLE001
+        _LAST_ERROR["msg"] = _friendly_error(exc)
         logger.warning("OpenAI 呼叫失敗（降級模板）: %s", exc)
         return None
 
 
 def complete(system: str, prompt: str) -> str | None:
     """呼叫偵測到的供應商；失敗回傳 None。"""
+    _LAST_ERROR["msg"] = ""
     provider = detect_provider()
     if provider == "anthropic":
         return _complete_anthropic(system, prompt)
