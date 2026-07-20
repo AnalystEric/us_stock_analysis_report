@@ -23,6 +23,7 @@ openai>=1.40
 
 # --- 網頁介面（選用）---
 streamlit>=1.30
+plotly>=5.20      # 網頁互動式圖表（縮放/懸停）
 pymupdf>=1.24      # 網頁內嵌 PDF 預覽（逐頁轉圖，避免 Chrome 封鎖 iframe PDF）
 
 # --- 其他 ---

@@ -25,7 +25,7 @@ from core.report_builder import build_report_data
 from core.ticker_resolver import StockNotFoundError, search_candidates
 from report import pdf_builder
 from utils.logging_setup import setup_logging
-from viz import charts
+from viz import interactive
 
 setup_logging(False)
 logger = logging.getLogger(__name__)
@@ -122,9 +122,9 @@ def _run_report(query: str):
                 label = f"{d.name}：{d.score:.0f}" if d.score is not None else f"{d.name}：N/A"
                 st.progress(val, text=label)
         with sb:
-            radar = charts.scorecard_radar(p.ticker, sc)
-            if radar:
-                st.image(radar, use_container_width=True)
+            radar = interactive.radar_fig(p.ticker, sc)
+            if radar is not None:
+                st.plotly_chart(radar, use_container_width=True)
         with st.expander("評分明細（各指標數值與子分數，規則透明）"):
             for d in sc.dimensions:
                 head = f"**{d.name}**（{d.score:.0f}）" if d.score is not None else f"**{d.name}**（N/A）"
@@ -154,18 +154,21 @@ def _run_report(query: str):
         st.warning(report.ai.notice)
     st.write(report.ai.core_view)
 
-    st.markdown("#### 圖表預覽")
+    st.markdown("#### 互動圖表")
+    st.caption("可框選縮放、拖曳平移、滑鼠懸停看數值；右上角工具列可還原或下載圖片。")
     t = p.ticker
-    # 單張全寬堆疊：尺寸一致、圖大清楚
-    previews = [
-        (charts.price_candle_chart(t, report.price), "股價 K 線圖（疊加 50/200 日均線與成交量）"),
-        (charts.revenue_yoy_chart(t, report.financials), "季度營收與年增率 (YoY)"),
-        (charts.margins_chart(t, report.financials), "季度毛利率與自由現金流利潤率"),
-        (charts.eps_chart(t, report.financials), "季度實際 EPS vs 市場預估 (Beat/Miss)"),
-    ]
-    for path, caption in previews:
-        if path:
-            st.image(path, caption=caption, use_container_width=True)
+    for fig in (interactive.price_fig(t, report.price),
+                interactive.revenue_yoy_fig(t, report.financials),
+                interactive.margins_fig(t, report.financials),
+                interactive.eps_fig(t, report.financials)):
+        if fig is not None:
+            st.plotly_chart(fig, use_container_width=True)
+
+    with st.expander("更多互動圖表：本益比趨勢、同業比較"):
+        for fig in (interactive.pe_fig(t, report.valuation),
+                    interactive.peers_fig(t, report.peers)):
+            if fig is not None:
+                st.plotly_chart(fig, use_container_width=True)
 
     with st.spinner("產生 PDF 報告…"):
         fname = f"{t}_{p.company_name.replace(' ', '_')}_投資分析報告.pdf"
