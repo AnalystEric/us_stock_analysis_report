@@ -110,6 +110,7 @@ def _run_report(query: str):
     st.subheader(f"{p.company_name}（{p.ticker}）")
     st.caption(f"{p.exchange_name or '美股'} · {p.sector or 'N/A'} / {p.industry or 'N/A'}")
 
+    st.markdown("#### 關鍵指標")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("目前股價", f"${km.current_price:,.2f}" if km.current_price else "—")
     c2.metric("總市值", _fmt_money(km.market_cap))
@@ -164,8 +165,72 @@ def _run_report(query: str):
 # ---------------------------------------------------------------------------
 # 版面
 # ---------------------------------------------------------------------------
-st.title("📈 美股投資分析 PDF 報告產生器")
-st.caption("以 yfinance 為核心資料源，整合 Pandas 分析、專業圖表、AI 質化分析與 WeasyPrint 排版。")
+st.markdown(
+    """
+<style>
+/* 全域背景與留白 */
+.stApp { background: #F4F7FB; }
+.block-container { padding-top: 1.1rem; max-width: 1150px; }
+
+/* 財經風橫幅 */
+.hero {
+  background: linear-gradient(120deg, #14273F 0%, #1F3A5F 55%, #2C5A8C 100%);
+  border-radius: 14px; padding: 26px 30px; margin: 2px 0 20px 0; color: #fff;
+  box-shadow: 0 6px 22px rgba(20,39,63,.22); position: relative; overflow: hidden;
+}
+.hero::after {
+  content: ""; position: absolute; right: -50px; top: -50px; width: 240px; height: 240px;
+  background: radial-gradient(circle, rgba(217,119,6,.35), transparent 70%);
+}
+.hero .eyebrow { font-size: .78rem; letter-spacing: 3px; color: #9FC0E0; text-transform: uppercase; }
+.hero .title { font-size: 1.85rem; font-weight: 800; margin: 6px 0 2px; }
+.hero .sub { font-size: .95rem; color: #CFE0F0; }
+.hero .chips { margin-top: 14px; }
+.hero .chip { display: inline-block; background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.28); border-radius: 20px; padding: 3px 12px;
+  font-size: .78rem; margin: 0 8px 6px 0; }
+
+/* 指標卡片 */
+[data-testid="stMetric"] {
+  background: #fff; border: 1px solid #E2E8F0; border-radius: 12px;
+  padding: 14px 16px; box-shadow: 0 1px 3px rgba(16,42,67,.06);
+}
+[data-testid="stMetricLabel"] p { color: #64748B; font-size: .8rem; font-weight: 600; }
+[data-testid="stMetricValue"] { color: #1F3A5F; font-weight: 800; }
+
+/* 區塊標題（#### ...） */
+.stApp h4 { color: #1F3A5F; border-left: 4px solid #D97706; padding-left: 10px; margin-top: 1.3rem; }
+
+/* 按鈕 */
+.stButton > button[kind="primary"], .stDownloadButton > button {
+  background: #1F3A5F; border: 0; border-radius: 8px; font-weight: 700;
+}
+.stButton > button[kind="primary"]:hover, .stDownloadButton > button:hover { background: #2C5A8C; }
+
+/* 側邊欄：淡藍面板 */
+section[data-testid="stSidebar"] { background: #EDF2F8; border-right: 1px solid #DCE4EE; }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+<div class="hero">
+  <div class="eyebrow">US Equity Research · 美股投資分析</div>
+  <div class="title">📈 美股投資分析報告產生器</div>
+  <div class="sub">yfinance 資料引擎 · Pandas 深度分析 · AI 質化解讀 · 投行級 PDF 報告</div>
+  <div class="chips">
+    <span class="chip">📊 估值與籌碼</span>
+    <span class="chip">🏦 華爾街目標價</span>
+    <span class="chip">🧭 護城河分析</span>
+    <span class="chip">📈 技術面 K 線</span>
+    <span class="chip">📰 多來源新聞</span>
+  </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
 with st.sidebar:
     st.header("設定")
